@@ -1,4 +1,5 @@
 import User from '../models/auth.model.js';
+import Job from '../models/job.model.js';
 import s3 from '../config/s3.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -153,6 +154,20 @@ const updateProfileWithFile = async (req, res) => {
         message: 'User not found'
       });
     }
+    
+    // If this is a company logo update for a job hoster, also update all their jobs
+    if (determinedFileType === 'companyLogo' && user.role === 'jobHoster') {
+      try {
+        await Job.updateMany(
+          { postedBy: userId },
+          { 'company.logo': fileUrl }
+        );
+      } catch (updateError) {
+        console.error('Error updating jobs with new company logo:', updateError);
+        // We don't return an error here because the profile update was successful
+        // We just log the error and continue
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -250,6 +265,20 @@ const uploadMultipleFiles = async (req, res) => {
         success: false,
         message: 'User not found'
       });
+    }
+    
+    // If company logo was updated for a job hoster, also update all their jobs
+    if (updates['profile.companyLogo'] && user.role === 'jobHoster') {
+      try {
+        await Job.updateMany(
+          { postedBy: userId },
+          { 'company.logo': updates['profile.companyLogo'] }
+        );
+      } catch (updateError) {
+        console.error('Error updating jobs with new company logo:', updateError);
+        // We don't return an error here because the profile update was successful
+        // We just log the error and continue
+      }
     }
 
     res.status(200).json({
@@ -482,6 +511,18 @@ const updateCompanyLogo = async (req, res) => {
         success: false,
         message: 'User not found'
       });
+    }
+    
+    // Update all jobs posted by this job hoster with the new company logo
+    try {
+      await Job.updateMany(
+        { postedBy: userId },
+        { 'company.logo': fileUrl }
+      );
+    } catch (updateError) {
+      console.error('Error updating jobs with new company logo:', updateError);
+      // We don't return an error here because the profile update was successful
+      // We just log the error and continue
     }
 
     res.status(200).json({

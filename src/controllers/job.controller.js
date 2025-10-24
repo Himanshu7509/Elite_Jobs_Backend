@@ -16,7 +16,8 @@ const createJob = async (req, res) => {
       requirements,
       responsibilities,
       experienceLevel,
-      applicationDeadline
+      applicationDeadline,
+      category
     } = req.body;
 
     // Validate required fields
@@ -27,11 +28,39 @@ const createJob = async (req, res) => {
       });
     }
 
+    // Get the job hoster's profile to populate company information
+    const jobHoster = await User.findById(req.user.userId);
+    
+    if (!jobHoster || jobHoster.role !== 'jobHoster') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only job hosters can create jobs'
+      });
+    }
+
+    // Prepare company information
+    const companyInfo = { ...company };
+    
+    // If company logo is not provided in the request, use the one from job hoster's profile
+    if (!companyInfo.logo && jobHoster.profile && jobHoster.profile.companyLogo) {
+      companyInfo.logo = jobHoster.profile.companyLogo;
+    }
+    
+    // If company description is not provided, use the one from job hoster's profile
+    if (!companyInfo.description && jobHoster.profile && jobHoster.profile.companyDescription) {
+      companyInfo.description = jobHoster.profile.companyDescription;
+    }
+    
+    // If company website is not provided, use the one from job hoster's profile
+    if (!companyInfo.website && jobHoster.profile && jobHoster.profile.companyWebsite) {
+      companyInfo.website = jobHoster.profile.companyWebsite;
+    }
+
     // Create new job
     const job = new Job({
       title,
       description,
-      company,
+      company: companyInfo,
       location,
       employmentType,
       salary,
@@ -39,6 +68,7 @@ const createJob = async (req, res) => {
       responsibilities,
       experienceLevel,
       applicationDeadline,
+      category,
       postedBy: req.user.userId
     });
 
@@ -89,7 +119,7 @@ const getAllJobs = async (req, res) => {
     
     // Get jobs with pagination
     const jobs = await Job.find(filter)
-      .populate('postedBy', 'name email')
+      .populate('postedBy', 'name email profile')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -161,6 +191,14 @@ const updateJob = async (req, res) => {
       });
     }
     
+    // If company information is being updated, ensure it includes logo from profile
+    if (updateData.company) {
+      const jobHoster = await User.findById(req.user.userId);
+      if (jobHoster && jobHoster.profile && jobHoster.profile.companyLogo && !updateData.company.logo) {
+        updateData.company.logo = jobHoster.profile.companyLogo;
+      }
+    }
+    
     // Update job
     Object.keys(updateData).forEach(key => {
       job[key] = updateData[key];
@@ -175,6 +213,51 @@ const updateJob = async (req, res) => {
     });
   } catch (error) {
     console.error('Update job error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Function to update all existing jobs with company logo from job hoster's profile
+const updateAllJobsWithCompanyLogo = async (req, res) => {
+  try {
+    // Only allow this for admin or in development
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({
+        success: false,
+        message: 'This endpoint is only available in development mode'
+      });
+    }
+    
+    // Find all jobs
+    const jobs = await Job.find({}).populate('postedBy', 'role profile');
+    
+    let updatedCount = 0;
+    
+    for (const job of jobs) {
+      // Check if job has a job hoster and if the job hoster has a company logo
+      if (job.postedBy && job.postedBy.role === 'jobHoster' && 
+          job.postedBy.profile && job.postedBy.profile.companyLogo) {
+        
+        // If job doesn't have a company logo, update it
+        if (!job.company.logo) {
+          job.company.logo = job.postedBy.profile.companyLogo;
+          await job.save();
+          updatedCount++;
+        }
+      }
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Updated ${updatedCount} jobs with company logos`,
+      updatedCount
+    });
+  } catch (error) {
+    console.error('Update all jobs error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -569,5 +652,6 @@ export {
   getUserJobs,
   updateApplicationStatus,
   getApplicationById,
-  deleteAccount
+  deleteAccount,
+  updateAllJobsWithCompanyLogo
 };

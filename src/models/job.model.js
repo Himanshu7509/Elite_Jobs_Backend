@@ -55,7 +55,7 @@ const jobSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: ['IT', 'Sales', 'Finance', 'Marketing', 'HR', 'Operations', 'Engineering', 'Other'],
-    default: 'Other'
+    required: true
   }
 }, { timestamps: true });
 

@@ -11,7 +11,8 @@ import {
   getUserJobs,
   updateApplicationStatus,
   getApplicationById,
-  deleteAccount
+  deleteAccount,
+  updateAllJobsWithCompanyLogo
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -22,6 +23,9 @@ jobRouter.get('/', getAllJobs);
 jobRouter.get('/:id', getJobById);
 
 jobRouter.get('/applications/debug/:id', getApplicationById);
+
+// Development only route - update all jobs with company logos
+jobRouter.post('/update-all-jobs-logos', updateAllJobsWithCompanyLogo);
 
 // Protected routes - Job Seekers
 jobRouter.post('/:id/apply', authMiddleware, authorizeRole('jobSeeker'), applyForJob);
