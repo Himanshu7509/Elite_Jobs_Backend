@@ -66,6 +66,9 @@ const signup = async (req, res) => {
         companyName: profile?.companyName || '',
         companyDescription: profile?.companyDescription || '',
         companyWebsite: profile?.companyWebsite || '',
+        companyEmail: profile?.companyEmail || '', // New field
+        numberOfEmployees: profile?.numberOfEmployees || null, // New field
+        companyPhone: profile?.companyPhone || '', // New field
         companyLogo: profile?.companyLogo || '',
         photo: profile?.photo || '',
         phone: profile?.phone || '', // New field
@@ -251,6 +254,9 @@ const updateProfile = async (req, res) => {
         updateData['profile.companyName'] = profile.companyName !== undefined ? profile.companyName : existingProfile.companyName;
         updateData['profile.companyDescription'] = profile.companyDescription !== undefined ? profile.companyDescription : existingProfile.companyDescription;
         updateData['profile.companyWebsite'] = profile.companyWebsite !== undefined ? profile.companyWebsite : existingProfile.companyWebsite;
+        updateData['profile.companyEmail'] = profile.companyEmail !== undefined ? profile.companyEmail : existingProfile.companyEmail; // New field
+        updateData['profile.numberOfEmployees'] = profile.numberOfEmployees !== undefined ? profile.numberOfEmployees : existingProfile.numberOfEmployees; // New field
+        updateData['profile.companyPhone'] = profile.companyPhone !== undefined ? profile.companyPhone : existingProfile.companyPhone; // New field
         updateData['profile.phone'] = profile.phone !== undefined ? profile.phone : existingProfile.phone; // New field
         updateData['profile.panCardNumber'] = profile.panCardNumber !== undefined ? profile.panCardNumber : existingProfile.panCardNumber;
         updateData['profile.gstNumber'] = profile.gstNumber !== undefined ? profile.gstNumber : existingProfile.gstNumber;

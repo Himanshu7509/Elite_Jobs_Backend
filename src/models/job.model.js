@@ -22,9 +22,23 @@ const jobSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  employmentType: {
+  jobType: { // Replaced employmentType
     type: String,
-    enum: ['Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance'],
+    enum: ['Full-time', 'Part-time'],
+    required: true
+  },
+  interviewType: { // New field
+    type: String,
+    enum: ['Online', 'On-site'],
+    required: true
+  },
+  workType: { // New field
+    type: String,
+    enum: ['Remote', 'On-site', 'Hybrid'],
+    required: true
+  },
+  minEducation: { // New field
+    type: String,
     required: true
   },
   salary: {

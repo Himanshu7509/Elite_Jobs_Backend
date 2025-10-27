@@ -30,6 +30,9 @@ const jobHosterProfileSchema = new mongoose.Schema({
   companyName: String,
   companyDescription: String,
   companyWebsite: String,
+  companyEmail: String, // New field
+  numberOfEmployees: Number, // New field
+  companyPhone: String, // New field
   companyLogo: String, // URL to S3 uploaded company logo
   photo: String, // URL to S3 uploaded personal photo
   phone: String, // New field for phone number

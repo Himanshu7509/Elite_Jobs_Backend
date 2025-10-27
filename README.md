@@ -484,6 +484,9 @@ This feature works with all file upload methods:
     companyName: String,
     companyDescription: String,
     companyWebsite: String,
+    companyEmail: String, // New field
+    numberOfEmployees: Number, // New field
+    companyPhone: String, // New field
     companyLogo: String, // URL to S3
     photo: String, // URL to S3
     phone: String,
@@ -505,7 +508,10 @@ This feature works with all file upload methods:
     logo: String  // URL to S3 - automatically synchronized with job hoster's profile
   },
   location: String,
-  employmentType: String, // Full-time, Part-time, Contract, Internship, Freelance
+  jobType: String, // Full-time, Part-time (replaces employmentType)
+  interviewType: String, // Online, On-site
+  workType: String, // Remote, On-site, Hybrid
+  minEducation: String, // Required education level
   salary: {
     min: Number,
     max: Number,
@@ -513,7 +519,7 @@ This feature works with all file upload methods:
   },
   requirements: [String],
   responsibilities: [String],
-  skills: [String], // New field for required skills in job postings
+  skills: [String],
   experienceLevel: String, // Entry, Junior, Mid, Senior, Executive, Intern
   applicationDeadline: Date,
   postedBy: ObjectId (ref: User),

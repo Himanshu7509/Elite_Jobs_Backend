@@ -9,23 +9,25 @@ const createJob = async (req, res) => {
     const {
       title,
       description,
-      company,
       location,
-      employmentType,
+      jobType,
+      interviewType,
+      workType,
+      minEducation,
       salary,
       requirements,
       responsibilities,
-      skills, // New field
+      skills,
       experienceLevel,
       applicationDeadline,
       category
     } = req.body;
 
     // Validate required fields
-    if (!title || !description || !company || !location || !employmentType || !experienceLevel) {
+    if (!title || !description || !location || !jobType || !interviewType || !workType || !minEducation || !experienceLevel) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: title, description, company, location, employmentType, experienceLevel'
+        message: 'Please provide all required fields: title, description, location, jobType, interviewType, workType, minEducation, experienceLevel'
       });
     }
 
@@ -39,23 +41,13 @@ const createJob = async (req, res) => {
       });
     }
 
-    // Prepare company information
-    const companyInfo = { ...company };
-    
-    // If company logo is not provided in the request, use the one from job hoster's profile
-    if (!companyInfo.logo && jobHoster.profile && jobHoster.profile.companyLogo) {
-      companyInfo.logo = jobHoster.profile.companyLogo;
-    }
-    
-    // If company description is not provided, use the one from job hoster's profile
-    if (!companyInfo.description && jobHoster.profile && jobHoster.profile.companyDescription) {
-      companyInfo.description = jobHoster.profile.companyDescription;
-    }
-    
-    // If company website is not provided, use the one from job hoster's profile
-    if (!companyInfo.website && jobHoster.profile && jobHoster.profile.companyWebsite) {
-      companyInfo.website = jobHoster.profile.companyWebsite;
-    }
+    // Prepare company information from job hoster's profile
+    const companyInfo = {
+      name: jobHoster.profile?.companyName || '',
+      description: jobHoster.profile?.companyDescription || '',
+      website: jobHoster.profile?.companyWebsite || '',
+      logo: jobHoster.profile?.companyLogo || ''
+    };
 
     // Create new job
     const job = new Job({
@@ -63,11 +55,14 @@ const createJob = async (req, res) => {
       description,
       company: companyInfo,
       location,
-      employmentType,
+      jobType,
+      interviewType,
+      workType,
+      minEducation,
       salary,
       requirements,
       responsibilities,
-      skills, // New field
+      skills,
       experienceLevel,
       applicationDeadline,
       category,
