@@ -37,6 +37,7 @@ const jobSchema = new mongoose.Schema({
   },
   requirements: [String],
   responsibilities: [String],
+  skills: [String],
   experienceLevel: {
     type: String,
     enum: ['Entry', 'Junior', 'Mid', 'Senior', 'Executive', 'Intern'],

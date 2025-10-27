@@ -12,7 +12,8 @@ import {
   updateApplicationStatus,
   getApplicationById,
   deleteAccount,
-  updateAllJobsWithCompanyLogo
+  updateAllJobsWithCompanyLogo,
+  getJobCountsByCategory
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -20,6 +21,7 @@ const jobRouter = express.Router();
 
 // Public routes
 jobRouter.get('/', getAllJobs);
+jobRouter.get('/categories', getJobCountsByCategory);
 jobRouter.get('/:id', getJobById);
 
 jobRouter.get('/applications/debug/:id', getApplicationById);

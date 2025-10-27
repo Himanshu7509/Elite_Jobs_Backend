@@ -21,6 +21,7 @@ const jobSeekerProfileSchema = new mongoose.Schema({
     endDate: Date,
     description: String
   }],
+  skills: [String], // New field for job seeker skills
   photo: String, // URL to S3 uploaded photo
   resume: String  // URL to S3 uploaded resume
 }, { _id: false });

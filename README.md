@@ -29,6 +29,7 @@ This is the backend service for the Elite Jobs platform, a job portal applicatio
 - Job posting and management
 - Job application system
 - File upload to AWS S3 (resumes, photos, company logos)
+- Automatic synchronization of company logos across all job postings
 - Profile completeness validation for job applications
 
 ### User Roles
@@ -222,6 +223,21 @@ Content-Type: multipart/form-data
 **Form Field:**
 - `companyLogo` (Image file)
 
+**Note:** When a job hoster updates their company logo through this endpoint, all jobs previously posted by this hoster are automatically updated with the new company logo. This ensures brand consistency across all job listings.
+
+#### General File Upload
+```http
+POST /api/v1/auth/profile/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Form Fields:**
+- `file` (The file to upload)
+- `fileType` (Optional: 'resume', 'photo', or 'companyLogo')
+
+**Note:** When uploading a company logo through this endpoint, all jobs posted by the job hoster are automatically updated with the new company logo.
+
 ### Jobs
 
 #### Create Job (Job Hoster Only)
@@ -230,9 +246,93 @@ POST /api/v1/jobs
 Authorization: Bearer <token>
 ```
 
+**Request Body:**
+```json
+{
+  "title": "Software Engineer",
+  "description": "We are looking for a skilled software engineer...",
+  "company": {
+    "name": "Tech Solutions Inc.",
+    "description": "Leading technology company",
+    "website": "https://techsolutions.com"
+  },
+  "location": "San Francisco, CA",
+  "employmentType": "Full-time",
+  "salary": {
+    "min": 80000,
+    "max": 120000,
+    "currency": "USD"
+  },
+  "requirements": ["JavaScript", "React", "Node.js"],
+  "responsibilities": ["Develop web applications", "Collaborate with team"],
+  "experienceLevel": "Mid",
+  "applicationDeadline": "2025-12-31",
+  "category": "IT"
+}
+```
+
+**Note:** When creating a job, if the company logo is not provided in the request, it will be automatically populated from the job hoster's profile.
+
 #### Get All Jobs (Public)
 ```http
 GET /api/v1/jobs
+```
+
+**Query Parameters:**
+- `page` (default: 1)
+- `limit` (default: 10)
+- `search` (search in title, description, or company name)
+- `location` (filter by location)
+- `employmentType` (filter by employment type)
+- `experienceLevel` (filter by experience level)
+
+#### Get Job Counts by Category (Public)
+```http
+GET /api/v1/jobs/categories
+```
+
+Retrieves the count of active jobs in each category. Useful for displaying job statistics or building category filter UIs.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "category": "IT",
+      "count": 12
+    },
+    {
+      "category": "Sales",
+      "count": 7
+    },
+    {
+      "category": "Finance",
+      "count": 3
+    },
+    {
+      "category": "Marketing",
+      "count": 4
+    },
+    {
+      "category": "HR",
+      "count": 2
+    },
+    {
+      "category": "Operations",
+      "count": 3
+    },
+    {
+      "category": "Engineering",
+      "count": 5
+    },
+    {
+      "category": "Other",
+      "count": 1
+    }
+  ],
+  "totalJobs": 37
+}
 ```
 
 #### Get Job by ID (Public)
@@ -245,6 +345,8 @@ GET /api/v1/jobs/:id
 PUT /api/v1/jobs/:id
 Authorization: Bearer <token>
 ```
+
+**Note:** When updating a job's company information, if the company logo is not provided, it will be automatically populated from the job hoster's profile.
 
 #### Delete Job (Job Hoster Only)
 ```http
@@ -321,6 +423,18 @@ When users delete their profiles, all associated files are automatically removed
 - **Photos/Logos**: JPEG, PNG, GIF images only
 - **File Size Limit**: 5MB maximum
 
+### Automatic Company Logo Synchronization
+
+The Elite Jobs platform automatically synchronizes company logos across all job postings. When a job hoster updates their company logo through any of the file upload endpoints:
+- Their profile is updated with the new company logo URL
+- All jobs they've previously posted are automatically updated with the same company logo URL
+- This ensures brand consistency across all job listings without manual intervention
+
+This feature works with all file upload methods:
+1. Dedicated company logo endpoint (`PUT /api/v1/auth/profile/company-logo`)
+2. General file upload endpoint (`POST /api/v1/auth/profile/upload`)
+3. Multiple file upload endpoint (`POST /api/v1/auth/profile/upload-multiple`)
+
 ## Database Schema
 
 ### User Model
@@ -338,6 +452,7 @@ When users delete their profiles, all associated files are automatically removed
     phone: String,
     githubUrl: String,
     linkedinUrl: String,
+    skills: [String], // New field for job seeker skills
     education: [{
       degree: String,
       institution: String,
@@ -383,17 +498,27 @@ When users delete their profiles, all associated files are automatically removed
 {
   title: String,
   description: String,
-  company: String,
+  company: {
+    name: String,
+    description: String,
+    website: String,
+    logo: String  // URL to S3 - automatically synchronized with job hoster's profile
+  },
   location: String,
-  employmentType: String, // full-time, part-time, contract, internship
-  salary: String,
+  employmentType: String, // Full-time, Part-time, Contract, Internship, Freelance
+  salary: {
+    min: Number,
+    max: Number,
+    currency: String
+  },
   requirements: [String],
   responsibilities: [String],
-  experienceLevel: String, // entry, mid, senior, executive
+  skills: [String], // New field for required skills in job postings
+  experienceLevel: String, // Entry, Junior, Mid, Senior, Executive, Intern
   applicationDeadline: Date,
   postedBy: ObjectId (ref: User),
   isActive: Boolean,
-  category: String // IT, Sales, Finance, etc.
+  category: String // IT, Sales, Finance, Marketing, HR, Operations, Engineering, Other
 }
 ```
 

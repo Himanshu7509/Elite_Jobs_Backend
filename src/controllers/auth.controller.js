@@ -55,6 +55,7 @@ const signup = async (req, res) => {
         phone: profile?.phone || '', // New field
         githubUrl: profile?.githubUrl || '', // New field
         linkedinUrl: profile?.linkedinUrl || '', // New field
+        skills: profile?.skills || [], // New field
         education: profile?.education || [],
         experience: profile?.experience || [],
         photo: profile?.photo || '',
@@ -218,6 +219,7 @@ const updateProfile = async (req, res) => {
         updateData['profile.phone'] = profile.phone !== undefined ? profile.phone : existingProfile.phone; // New field
         updateData['profile.githubUrl'] = profile.githubUrl !== undefined ? profile.githubUrl : existingProfile.githubUrl; // New field
         updateData['profile.linkedinUrl'] = profile.linkedinUrl !== undefined ? profile.linkedinUrl : existingProfile.linkedinUrl; // New field
+        updateData['profile.skills'] = profile.skills !== undefined ? profile.skills : existingProfile.skills; // New field
         
         // Handle arrays
         if (profile.education !== undefined) {

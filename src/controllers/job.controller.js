@@ -15,6 +15,7 @@ const createJob = async (req, res) => {
       salary,
       requirements,
       responsibilities,
+      skills, // New field
       experienceLevel,
       applicationDeadline,
       category
@@ -66,6 +67,7 @@ const createJob = async (req, res) => {
       salary,
       requirements,
       responsibilities,
+      skills, // New field
       experienceLevel,
       applicationDeadline,
       category,
@@ -565,6 +567,65 @@ const getUserJobs = async (req, res) => {
   }
 };
 
+// Get job counts by category (Public)
+const getJobCountsByCategory = async (req, res) => {
+  try {
+    // Aggregate jobs by category with counts
+    const categoryCounts = await Job.aggregate([
+      { $match: { isActive: true } }, // Only count active jobs
+      {
+        $group: {
+          _id: "$category",
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          count: 1
+        }
+      },
+      { $sort: { category: 1 } }
+    ]);
+
+    // Get all possible categories from the schema
+    const allCategories = ['IT', 'Sales', 'Finance', 'Marketing', 'HR', 'Operations', 'Engineering', 'Other'];
+    
+    // Create a map with all categories and their counts (0 if not found)
+    const categoryMap = {};
+    allCategories.forEach(category => {
+      categoryMap[category] = 0;
+    });
+    
+    // Update counts for categories that have jobs
+    categoryCounts.forEach(item => {
+      if (allCategories.includes(item.category)) {
+        categoryMap[item.category] = item.count;
+      }
+    });
+    
+    // Convert to array format
+    const result = Object.keys(categoryMap).map(category => ({
+      category,
+      count: categoryMap[category]
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      totalJobs: result.reduce((sum, item) => sum + item.count, 0)
+    });
+  } catch (error) {
+    console.error('Get job counts by category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 // Delete user account (Job Seeker or Job Hoster)
 const deleteAccount = async (req, res) => {
   try {
@@ -653,5 +714,6 @@ export {
   updateApplicationStatus,
   getApplicationById,
   deleteAccount,
-  updateAllJobsWithCompanyLogo
+  updateAllJobsWithCompanyLogo,
+  getJobCountsByCategory
 };
