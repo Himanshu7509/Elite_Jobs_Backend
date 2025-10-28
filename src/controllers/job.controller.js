@@ -675,15 +675,17 @@ const getJobApplicationStats = async (req, res) => {
     
     // Get all jobs posted by the user
     const jobs = await Job.find({ postedBy: userId });
-    const jobIds = jobs.map(job => job._id);
     
-    if (jobIds.length === 0) {
+    if (jobs.length === 0) {
       return res.status(200).json({
         success: true,
         data: {
-          weeklyStats: [],
-          monthlyStats: [],
-          totalApplications: 0
+          overallStats: {
+            weeklyStats: [],
+            monthlyStats: [],
+            totalApplications: 0
+          },
+          jobStats: []
         }
       });
     }
@@ -693,17 +695,15 @@ const getJobApplicationStats = async (req, res) => {
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
-    // Get applications for the last week
-    const weeklyApplications = await Application.find({
-      jobId: { $in: jobIds },
-      appliedAt: { $gte: oneWeekAgo }
-    });
-    
-    // Get applications for the last month
+    // Get all applications for the user's jobs in the last month
+    const jobIds = jobs.map(job => job._id);
     const monthlyApplications = await Application.find({
       jobId: { $in: jobIds },
       appliedAt: { $gte: oneMonthAgo }
-    });
+    }).populate('jobId', 'title');
+    
+    // Get applications for the last week
+    const weeklyApplications = monthlyApplications.filter(app => app.appliedAt >= oneWeekAgo);
     
     // Group weekly applications by day
     const weeklyStats = {};
@@ -753,12 +753,81 @@ const getJobApplicationStats = async (req, res) => {
       });
     }
     
+    // Get job-specific statistics
+    const jobStats = [];
+    for (const job of jobs) {
+      // Get applications for this specific job
+      const jobApplications = monthlyApplications.filter(app => 
+        app.jobId && app.jobId._id && app.jobId._id.toString() === job._id.toString()
+      );
+      
+      // Get weekly applications for this job
+      const jobWeeklyApplications = jobApplications.filter(app => app.appliedAt >= oneWeekAgo);
+      
+      // Group job weekly applications by day
+      const jobWeeklyStats = {};
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dateString = date.toISOString().split('T')[0];
+        const dayName = dayNames[date.getDay()];
+        jobWeeklyStats[dateString] = {
+          count: 0,
+          day: dayName
+        };
+      }
+      
+      jobWeeklyApplications.forEach(app => {
+        const date = app.appliedAt.toISOString().split('T')[0];
+        if (jobWeeklyStats[date] !== undefined) {
+          jobWeeklyStats[date].count++;
+        }
+      });
+      
+      // Format job weekly stats
+      const formattedJobWeeklyStats = Object.keys(jobWeeklyStats).map(date => ({
+        date,
+        day: jobWeeklyStats[date].day,
+        count: jobWeeklyStats[date].count
+      }));
+      
+      // Group job monthly applications by week
+      const jobMonthlyStats = [];
+      for (let i = 3; i >= 0; i--) {
+        const weekEnd = new Date(now);
+        weekEnd.setDate(weekEnd.getDate() - i * 7);
+        const weekStart = new Date(weekEnd);
+        weekStart.setDate(weekStart.getDate() - 6);
+        
+        const count = jobApplications.filter(app => {
+          return app.appliedAt >= weekStart && app.appliedAt <= weekEnd;
+        }).length;
+        
+        jobMonthlyStats.push({
+          weekStart: weekStart.toISOString().split('T')[0],
+          weekEnd: weekEnd.toISOString().split('T')[0],
+          count
+        });
+      }
+      
+      jobStats.push({
+        jobId: job._id,
+        jobTitle: job.title,
+        weeklyStats: formattedJobWeeklyStats,
+        monthlyStats: jobMonthlyStats,
+        totalApplications: jobApplications.length
+      });
+    }
+    
     res.status(200).json({
       success: true,
       data: {
-        weeklyStats: formattedWeeklyStats,
-        monthlyStats,
-        totalApplications: monthlyApplications.length
+        overallStats: {
+          weeklyStats: formattedWeeklyStats,
+          monthlyStats,
+          totalApplications: monthlyApplications.length
+        },
+        jobStats
       }
     });
   } catch (error) {
