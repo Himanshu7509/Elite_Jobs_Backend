@@ -57,6 +57,11 @@ const jobSchema = new mongoose.Schema({
     enum: ['Fresher', '0-1 year of experience', '1-2 year of experience', '2-4 year of experience', '5+ year of experience'],
     required: true
   },
+  noticePeriod: { // New field
+    type: String,
+    enum: ['Immediate Joiner', 'Upto 1 week', 'Upto 1 month', 'Upto 2 month', 'Any'],
+    required: true
+  },
   postedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

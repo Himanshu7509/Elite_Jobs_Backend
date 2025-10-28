@@ -452,7 +452,6 @@ This feature works with all file upload methods:
     phone: String,
     githubUrl: String,
     linkedinUrl: String,
-    skills: [String], // New field for job seeker skills
     education: [{
       degree: String,
       institution: String,
@@ -467,8 +466,11 @@ This feature works with all file upload methods:
       endDate: Date,
       description: String
     }],
+    skills: [String],
     photo: String, // URL to S3
-    resume: String  // URL to S3
+    resume: String, // URL to S3
+    gender: String,
+    noticePeriod: String // "Immediate Joiner", "Upto 1 week", "Upto 1 month", "Upto 2 month", or custom value if "Any"
   }
 }
 ```
@@ -484,9 +486,9 @@ This feature works with all file upload methods:
     companyName: String,
     companyDescription: String,
     companyWebsite: String,
-    companyEmail: String, // New field
-    numberOfEmployees: Number, // New field
-    companyPhone: String, // New field
+    companyEmail: String,
+    numberOfEmployees: Number,
+    companyPhone: String,
     companyLogo: String, // URL to S3
     photo: String, // URL to S3
     phone: String,
@@ -520,11 +522,12 @@ This feature works with all file upload methods:
   requirements: [String],
   responsibilities: [String],
   skills: [String],
-  experienceLevel: String, // Entry, Junior, Mid, Senior, Executive, Intern
+  experienceLevel: String, // Fresher, 0-1 year of experience, 1-2 year of experience, 2-4 year of experience, 5+ year of experience
+  noticePeriod: String, // "Immediate Joiner", "Upto 1 week", "Upto 1 month", "Upto 2 month", or custom value if "Any"
   applicationDeadline: Date,
   postedBy: ObjectId (ref: User),
   isActive: Boolean,
-  category: String // IT, Sales, Finance, Marketing, HR, Operations, Engineering, Other
+  category: String // IT & Networking, Sales & Marketing, Accounting, Data Science, Digital Marketing, Human Resource, Customer Service, Project Manager, Other
 }
 ```
 

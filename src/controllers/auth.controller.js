@@ -59,7 +59,9 @@ const signup = async (req, res) => {
         education: profile?.education || [],
         experience: profile?.experience || [],
         photo: profile?.photo || '',
-        resume: profile?.resume || ''
+        resume: profile?.resume || '',
+        gender: profile?.gender || '', // New field
+        noticePeriod: profile?.noticePeriod || '' // New field
       };
     } else if (role === 'jobHoster') {
       userData.profile = {
@@ -223,6 +225,8 @@ const updateProfile = async (req, res) => {
         updateData['profile.githubUrl'] = profile.githubUrl !== undefined ? profile.githubUrl : existingProfile.githubUrl; // New field
         updateData['profile.linkedinUrl'] = profile.linkedinUrl !== undefined ? profile.linkedinUrl : existingProfile.linkedinUrl; // New field
         updateData['profile.skills'] = profile.skills !== undefined ? profile.skills : existingProfile.skills; // New field
+        updateData['profile.gender'] = profile.gender !== undefined ? profile.gender : existingProfile.gender; // New field
+        updateData['profile.noticePeriod'] = profile.noticePeriod !== undefined ? profile.noticePeriod : existingProfile.noticePeriod; // New field
         
         // Handle arrays
         if (profile.education !== undefined) {

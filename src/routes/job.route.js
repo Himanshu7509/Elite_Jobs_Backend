@@ -14,7 +14,8 @@ import {
   deleteAccount,
   updateAllJobsWithCompanyLogo,
   getJobCountsByCategory,
-  getJobApplicationById
+  getJobApplicationById,
+  getJobApplicationStats
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -32,12 +33,14 @@ jobRouter.delete('/account', authMiddleware, authorizeRole('jobSeeker'), deleteA
 // Protected routes - Job Hosters
 jobRouter.post('/', authMiddleware, authorizeRole('jobHoster'), createJob);
 jobRouter.get('/my', authMiddleware, authorizeRole('jobHoster'), getUserJobs);
+jobRouter.get('/stats', authMiddleware, authorizeRole('jobHoster'), getJobApplicationStats);
 jobRouter.put('/:id', authMiddleware, authorizeRole('jobHoster'), updateJob);
 jobRouter.delete('/:id', authMiddleware, authorizeRole('jobHoster'), deleteJob);
 jobRouter.get('/:id/applications', authMiddleware, authorizeRole('jobHoster'), getJobApplications);
 jobRouter.get('/:jobId/applications/:applicationId', authMiddleware, authorizeRole('jobHoster'), getJobApplicationById);
 jobRouter.patch('/applications/:id/status', authMiddleware, authorizeRole('jobHoster'), updateApplicationStatus);
 jobRouter.delete('/account', authMiddleware, authorizeRole('jobHoster'), deleteAccount);
+jobRouter.get('/applicant/:id', getApplicationById);
 
 // Public route - But placed at the end to avoid conflicting with /my
 jobRouter.get('/:id', getJobById);

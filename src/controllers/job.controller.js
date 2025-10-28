@@ -668,6 +668,109 @@ const getJobApplicationById = async (req, res) => {
   }
 };
 
+// Get job application statistics for job hoster dashboard
+const getJobApplicationStats = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Get all jobs posted by the user
+    const jobs = await Job.find({ postedBy: userId });
+    const jobIds = jobs.map(job => job._id);
+    
+    if (jobIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          weeklyStats: [],
+          monthlyStats: [],
+          totalApplications: 0
+        }
+      });
+    }
+    
+    // Calculate date ranges
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Get applications for the last week
+    const weeklyApplications = await Application.find({
+      jobId: { $in: jobIds },
+      appliedAt: { $gte: oneWeekAgo }
+    });
+    
+    // Get applications for the last month
+    const monthlyApplications = await Application.find({
+      jobId: { $in: jobIds },
+      appliedAt: { $gte: oneMonthAgo }
+    });
+    
+    // Group weekly applications by day
+    const weeklyStats = {};
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateString = date.toISOString().split('T')[0];
+      const dayName = dayNames[date.getDay()];
+      weeklyStats[dateString] = {
+        count: 0,
+        day: dayName
+      };
+    }
+    
+    weeklyApplications.forEach(app => {
+      const date = app.appliedAt.toISOString().split('T')[0];
+      if (weeklyStats[date] !== undefined) {
+        weeklyStats[date].count++;
+      }
+    });
+    
+    // Format weekly stats
+    const formattedWeeklyStats = Object.keys(weeklyStats).map(date => ({
+      date,
+      day: weeklyStats[date].day,
+      count: weeklyStats[date].count
+    }));
+    
+    // Group monthly applications by week
+    const monthlyStats = [];
+    for (let i = 3; i >= 0; i--) {
+      const weekEnd = new Date(now);
+      weekEnd.setDate(weekEnd.getDate() - i * 7);
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekStart.getDate() - 6);
+      
+      const count = monthlyApplications.filter(app => {
+        return app.appliedAt >= weekStart && app.appliedAt <= weekEnd;
+      }).length;
+      
+      monthlyStats.push({
+        weekStart: weekStart.toISOString().split('T')[0],
+        weekEnd: weekEnd.toISOString().split('T')[0],
+        count
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        weeklyStats: formattedWeeklyStats,
+        monthlyStats,
+        totalApplications: monthlyApplications.length
+      }
+    });
+  } catch (error) {
+    console.error('Get job application stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 // Delete user account (Job Seeker or Job Hoster)
 const deleteAccount = async (req, res) => {
   try {
@@ -758,5 +861,6 @@ export {
   deleteAccount,
   updateAllJobsWithCompanyLogo,
   getJobCountsByCategory,
-  getJobApplicationById
+  getJobApplicationById,
+  getJobApplicationStats
 };
