@@ -69,7 +69,7 @@ const jobSchema = new mongoose.Schema({
   applicationDeadline: Date,
   category: {
     type: String,
-    enum: ['IT', 'Sales', 'Finance', 'Marketing', 'HR', 'Operations', 'Engineering', 'Other'],
+    enum: ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"],
     required: true
   }
 }, { timestamps: true });

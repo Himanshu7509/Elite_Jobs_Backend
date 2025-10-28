@@ -585,7 +585,7 @@ const getJobCountsByCategory = async (req, res) => {
     ]);
 
     // Get all possible categories from the schema
-    const allCategories = ['IT', 'Sales', 'Finance', 'Marketing', 'HR', 'Operations', 'Engineering', 'Other'];
+    const allCategories = ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"];
     
     // Create a map with all categories and their counts (0 if not found)
     const categoryMap = {};
@@ -613,6 +613,53 @@ const getJobCountsByCategory = async (req, res) => {
     });
   } catch (error) {
     console.error('Get job counts by category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get specific applicant details for a job (Job Hoster only - own jobs)
+const getJobApplicationById = async (req, res) => {
+  try {
+    const { jobId, applicationId } = req.params;
+    
+    // Check if job belongs to user
+    const job = await Job.findOne({ _id: jobId, postedBy: req.user.userId });
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or you do not have permission to view applications for this job'
+      });
+    }
+    
+    // Get the specific application and populate applicant details
+    const application = await Application.findById(applicationId)
+      .populate('applicantId', 'name email profile');
+    
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found'
+      });
+    }
+    
+    // Verify that this application is for the specified job
+    if (application.jobId.toString() !== jobId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found for this job'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: application
+    });
+  } catch (error) {
+    console.error('Get job application error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -710,5 +757,6 @@ export {
   getApplicationById,
   deleteAccount,
   updateAllJobsWithCompanyLogo,
-  getJobCountsByCategory
+  getJobCountsByCategory,
+  getJobApplicationById
 };
