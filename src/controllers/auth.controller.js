@@ -61,7 +61,13 @@ const signup = async (req, res) => {
         photo: profile?.photo || '',
         resume: profile?.resume || '',
         gender: profile?.gender || '', // New field
-        noticePeriod: profile?.noticePeriod || '' // New field
+        noticePeriod: profile?.noticePeriod || '', // New field
+        preferredLocation: profile?.preferredLocation || '', // New field
+        designation: profile?.designation || '', // New field
+        expInWork: profile?.expInWork || '', // New field
+        salaryExpectation: profile?.salaryExpectation || '', // New field
+        preferredCategory: profile?.preferredCategory || '', // New field
+        highestEducation: profile?.highestEducation || '' // New field
       };
     } else if (role === 'jobHoster' || role === 'recruiter') {
       userData.profile = {
@@ -227,6 +233,12 @@ const updateProfile = async (req, res) => {
         updateData['profile.skills'] = profile.skills !== undefined ? profile.skills : existingProfile.skills; // New field
         updateData['profile.gender'] = profile.gender !== undefined ? profile.gender : existingProfile.gender; // New field
         updateData['profile.noticePeriod'] = profile.noticePeriod !== undefined ? profile.noticePeriod : existingProfile.noticePeriod; // New field
+        updateData['profile.preferredLocation'] = profile.preferredLocation !== undefined ? profile.preferredLocation : existingProfile.preferredLocation; // New field
+        updateData['profile.designation'] = profile.designation !== undefined ? profile.designation : existingProfile.designation; // New field
+        updateData['profile.expInWork'] = profile.expInWork !== undefined ? profile.expInWork : existingProfile.expInWork; // New field
+        updateData['profile.salaryExpectation'] = profile.salaryExpectation !== undefined ? profile.salaryExpectation : existingProfile.salaryExpectation; // New field
+        updateData['profile.preferredCategory'] = profile.preferredCategory !== undefined ? profile.preferredCategory : existingProfile.preferredCategory; // New field
+        updateData['profile.highestEducation'] = profile.highestEducation !== undefined ? profile.highestEducation : existingProfile.highestEducation; // New field
         
         // Handle arrays
         if (profile.education !== undefined) {
