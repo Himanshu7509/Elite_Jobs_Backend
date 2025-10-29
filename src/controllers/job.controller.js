@@ -19,15 +19,16 @@ const createJob = async (req, res) => {
       responsibilities,
       skills,
       experienceLevel,
+      noticePeriod,
       applicationDeadline,
       category
     } = req.body;
 
     // Validate required fields
-    if (!title || !description || !location || !jobType || !interviewType || !workType || !minEducation || !experienceLevel) {
+    if (!title || !description || !location || !jobType || !interviewType || !workType || !minEducation || !experienceLevel || !noticePeriod) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: title, description, location, jobType, interviewType, workType, minEducation, experienceLevel'
+        message: 'Please provide all required fields: title, description, location, jobType, interviewType, workType, minEducation, experienceLevel, noticePeriod'
       });
     }
 
@@ -64,6 +65,7 @@ const createJob = async (req, res) => {
       responsibilities,
       skills,
       experienceLevel,
+      noticePeriod,
       applicationDeadline,
       category,
       postedBy: req.user.userId
