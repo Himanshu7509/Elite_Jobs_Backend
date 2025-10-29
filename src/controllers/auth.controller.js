@@ -23,10 +23,10 @@ const signup = async (req, res) => {
     }
 
     // Validate role
-    if (!['jobSeeker', 'jobHoster'].includes(role)) {
+    if (!['jobSeeker', 'jobHoster', 'recruiter'].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be either jobSeeker or jobHoster'
+        message: 'Role must be either jobSeeker, jobHoster, or recruiter'
       });
     }
 
@@ -63,17 +63,17 @@ const signup = async (req, res) => {
         gender: profile?.gender || '', // New field
         noticePeriod: profile?.noticePeriod || '' // New field
       };
-    } else if (role === 'jobHoster') {
+    } else if (role === 'jobHoster' || role === 'recruiter') {
       userData.profile = {
         companyName: profile?.companyName || '',
         companyDescription: profile?.companyDescription || '',
         companyWebsite: profile?.companyWebsite || '',
-        companyEmail: profile?.companyEmail || '', // New field
-        numberOfEmployees: profile?.numberOfEmployees || null, // New field
-        companyPhone: profile?.companyPhone || '', // New field
+        companyEmail: profile?.companyEmail || '',
+        numberOfEmployees: profile?.numberOfEmployees || null,
+        companyPhone: profile?.companyPhone || '',
         companyLogo: profile?.companyLogo || '',
         photo: profile?.photo || '',
-        phone: profile?.phone || '', // New field
+        phone: profile?.phone || '',
         panCardNumber: profile?.panCardNumber || '',
         gstNumber: profile?.gstNumber || ''
       };
@@ -253,15 +253,15 @@ const updateProfile = async (req, res) => {
         } else if (existingProfile.resume) {
           updateData['profile.resume'] = existingProfile.resume;
         }
-      } else if (user.role === 'jobHoster') {
-        // Update jobHoster profile fields
+      } else if (user.role === 'jobHoster' || user.role === 'recruiter') {
+        // Update jobHoster/recruiter profile fields
         updateData['profile.companyName'] = profile.companyName !== undefined ? profile.companyName : existingProfile.companyName;
         updateData['profile.companyDescription'] = profile.companyDescription !== undefined ? profile.companyDescription : existingProfile.companyDescription;
         updateData['profile.companyWebsite'] = profile.companyWebsite !== undefined ? profile.companyWebsite : existingProfile.companyWebsite;
-        updateData['profile.companyEmail'] = profile.companyEmail !== undefined ? profile.companyEmail : existingProfile.companyEmail; // New field
-        updateData['profile.numberOfEmployees'] = profile.numberOfEmployees !== undefined ? profile.numberOfEmployees : existingProfile.numberOfEmployees; // New field
-        updateData['profile.companyPhone'] = profile.companyPhone !== undefined ? profile.companyPhone : existingProfile.companyPhone; // New field
-        updateData['profile.phone'] = profile.phone !== undefined ? profile.phone : existingProfile.phone; // New field
+        updateData['profile.companyEmail'] = profile.companyEmail !== undefined ? profile.companyEmail : existingProfile.companyEmail;
+        updateData['profile.numberOfEmployees'] = profile.numberOfEmployees !== undefined ? profile.numberOfEmployees : existingProfile.numberOfEmployees;
+        updateData['profile.companyPhone'] = profile.companyPhone !== undefined ? profile.companyPhone : existingProfile.companyPhone;
+        updateData['profile.phone'] = profile.phone !== undefined ? profile.phone : existingProfile.phone;
         updateData['profile.panCardNumber'] = profile.panCardNumber !== undefined ? profile.panCardNumber : existingProfile.panCardNumber;
         updateData['profile.gstNumber'] = profile.gstNumber !== undefined ? profile.gstNumber : existingProfile.gstNumber;
         

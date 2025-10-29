@@ -10,6 +10,7 @@ import dbConnect from './src/config/mongodb.js';
 // Import routes
 import authRouter from './src/routes/auth.route.js';
 import jobRouter from './src/routes/job.route.js';
+import recruiterRouter from './src/routes/recruiter.route.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,6 +26,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/auth', authRouter);
 app.use('/jobs', jobRouter);
+app.use('/recruiter', recruiterRouter);
 
 // Health check endpoint
 app.get('/', (req, res) => {

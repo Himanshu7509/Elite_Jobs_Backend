@@ -35,10 +35,10 @@ const createJob = async (req, res) => {
     // Get the job hoster's profile to populate company information
     const jobHoster = await User.findById(req.user.userId);
     
-    if (!jobHoster || jobHoster.role !== 'jobHoster') {
+    if (!jobHoster || (jobHoster.role !== 'jobHoster' && jobHoster.role !== 'recruiter')) {
       return res.status(403).json({
         success: false,
-        message: 'Only job hosters can create jobs'
+        message: 'Only job hosters and recruiters can create jobs'
       });
     }
 
@@ -237,8 +237,8 @@ const updateAllJobsWithCompanyLogo = async (req, res) => {
     let updatedCount = 0;
     
     for (const job of jobs) {
-      // Check if job has a job hoster and if the job hoster has a company logo
-      if (job.postedBy && job.postedBy.role === 'jobHoster' && 
+      // Check if job has a job hoster/recruiter and if they have a company logo
+      if (job.postedBy && (job.postedBy.role === 'jobHoster' || job.postedBy.role === 'recruiter') && 
           job.postedBy.profile && job.postedBy.profile.companyLogo) {
         
         // If job doesn't have a company logo, update it
@@ -327,9 +327,9 @@ const updateApplicationStatus = async (req, res) => {
       });
     }
     
-    // Check if job belongs to the authenticated hoster
+    // Check if job belongs to the authenticated hoster or if user is a recruiter
     // Convert both IDs to strings for comparison
-    if (job.postedBy.toString() !== req.user.userId.toString()) {
+    if (req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to update this application'
@@ -485,12 +485,21 @@ const getJobApplications = async (req, res) => {
   try {
     const { id } = req.params;  // Changed from jobId to id to match route parameter
     
-    // Check if job belongs to user
-    const job = await Job.findOne({ _id: id, postedBy: req.user.userId });
+    // Check if job belongs to user or if user is a recruiter
+    const job = await Job.findById(id);
+    
     if (!job) {
       return res.status(404).json({
         success: false,
-        message: 'Job not found or you do not have permission to view applications for this job'
+        message: 'Job not found'
+      });
+    }
+    
+    // Allow recruiters to view all jobs' applications
+    if (req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view applications for this job'
       });
     }
     
@@ -538,12 +547,17 @@ const getUserJobs = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     
-    const jobs = await Job.find({ postedBy: req.user.userId })
+    // Allow recruiters to see all jobs, job hosters see only their own
+    const filter = req.user.role === 'recruiter' 
+      ? {} 
+      : { postedBy: req.user.userId };
+    
+    const jobs = await Job.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
       
-    const total = await Job.countDocuments({ postedBy: req.user.userId });
+    const total = await Job.countDocuments(filter);
     
     res.status(200).json({
       success: true,
@@ -628,12 +642,21 @@ const getJobApplicationById = async (req, res) => {
   try {
     const { jobId, applicationId } = req.params;
     
-    // Check if job belongs to user
-    const job = await Job.findOne({ _id: jobId, postedBy: req.user.userId });
+    // Check if job belongs to user or if user is a recruiter
+    const job = await Job.findById(jobId);
+    
     if (!job) {
       return res.status(404).json({
         success: false,
-        message: 'Job not found or you do not have permission to view applications for this job'
+        message: 'Job not found'
+      });
+    }
+    
+    // Allow recruiters to view all jobs' applications
+    if (req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view applications for this job'
       });
     }
     
@@ -675,8 +698,12 @@ const getJobApplicationStats = async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // Get all jobs posted by the user
-    const jobs = await Job.find({ postedBy: userId });
+    // Get all jobs posted by the user or all jobs for recruiters
+    const filter = req.user.role === 'recruiter' 
+      ? {} 
+      : { postedBy: userId };
+    
+    const jobs = await Job.find(filter);
     
     if (jobs.length === 0) {
       return res.status(200).json({

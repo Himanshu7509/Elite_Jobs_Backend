@@ -30,16 +30,16 @@ jobRouter.post('/:id/apply', authMiddleware, authorizeRole('jobSeeker'), applyFo
 jobRouter.get('/applications/my', authMiddleware, authorizeRole('jobSeeker'), getUserApplications);
 jobRouter.delete('/account', authMiddleware, authorizeRole('jobSeeker'), deleteAccount);
 
-// Protected routes - Job Hosters
-jobRouter.post('/', authMiddleware, authorizeRole('jobHoster'), createJob);
-jobRouter.get('/my', authMiddleware, authorizeRole('jobHoster'), getUserJobs);
-jobRouter.get('/stats', authMiddleware, authorizeRole('jobHoster'), getJobApplicationStats);
-jobRouter.put('/:id', authMiddleware, authorizeRole('jobHoster'), updateJob);
-jobRouter.delete('/:id', authMiddleware, authorizeRole('jobHoster'), deleteJob);
-jobRouter.get('/:id/applications', authMiddleware, authorizeRole('jobHoster'), getJobApplications);
-jobRouter.get('/:jobId/applications/:applicationId', authMiddleware, authorizeRole('jobHoster'), getJobApplicationById);
-jobRouter.patch('/applications/:id/status', authMiddleware, authorizeRole('jobHoster'), updateApplicationStatus);
-jobRouter.delete('/account', authMiddleware, authorizeRole('jobHoster'), deleteAccount);
+// Protected routes - Job Hosters and Recruiters
+jobRouter.post('/', authMiddleware, authorizeRole('jobHoster', 'recruiter'), createJob);
+jobRouter.get('/my', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getUserJobs);
+jobRouter.get('/stats', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getJobApplicationStats);
+jobRouter.put('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter'), updateJob);
+jobRouter.delete('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter'), deleteJob);
+jobRouter.get('/:id/applications', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getJobApplications);
+jobRouter.get('/:jobId/applications/:applicationId', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getJobApplicationById);
+jobRouter.patch('/applications/:id/status', authMiddleware, authorizeRole('jobHoster', 'recruiter'), updateApplicationStatus);
+jobRouter.delete('/account', authMiddleware, authorizeRole('jobHoster', 'recruiter'), deleteAccount);
 jobRouter.get('/applicant/:id', getApplicationById);
 
 // Public route - But placed at the end to avoid conflicting with /my

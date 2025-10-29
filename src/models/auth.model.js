@@ -42,6 +42,20 @@ const jobHosterProfileSchema = new mongoose.Schema({
   gstNumber: String
 }, { _id: false });
 
+const recruiterProfileSchema = new mongoose.Schema({
+  companyName: String,
+  companyDescription: String,
+  companyWebsite: String,
+  companyEmail: String,
+  numberOfEmployees: Number,
+  companyPhone: String,
+  companyLogo: String, // URL to S3 uploaded company logo
+  photo: String, // URL to S3 uploaded personal photo
+  phone: String,
+  panCardNumber: String,
+  gstNumber: String
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -58,7 +72,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['jobSeeker', 'jobHoster'],
+    enum: ['jobSeeker', 'jobHoster', 'recruiter'],
     required: true
   },
   profile: {
