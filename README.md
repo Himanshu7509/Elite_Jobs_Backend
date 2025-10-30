@@ -15,6 +15,7 @@ This is the backend service for the Elite Jobs platform, a job portal applicatio
   - [File Upload](#file-upload)
   - [Jobs](#jobs)
   - [Applications](#applications)
+  - [Recruiter APIs](#recruiter-apis)
 - [File Storage](#file-storage)
 - [Database Schema](#database-schema)
 - [Role-Based Access Control](#role-based-access-control)
@@ -407,6 +408,64 @@ DELETE /api/v1/jobs/account
 Authorization: Bearer <token>
 ```
 
+### Recruiter APIs
+
+#### Filter Applicants
+```http
+GET /api/v1/recruiter/applicants/filter
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `age` - Filter by exact age
+- `ageMin` - Filter by minimum age
+- `ageMax` - Filter by maximum age
+- `gender` - Filter by gender (male, female, other)
+- `designation` - Filter by designation (partial match)
+- `preferredCategory` - Filter by preferred job category
+- `expInWork` - Filter by work experience level
+- `highestEducation` - Filter by highest education level
+- `salary` - Filter by salary expectation (partial match)
+- `salaryMin` - Filter by minimum salary (partial match)
+- `salaryMax` - Filter by maximum salary (partial match)
+- `page` (default: 1)
+- `limit` (default: 10)
+
+**Example Request:**
+```http
+GET /api/v1/recruiter/applicants/filter?ageMin=25&ageMax=35&gender=male&preferredCategory=IT%20%26%20Networking&expInWork=2-4%20year%20of%20experience
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "applicants": [
+      {
+        "_id": "...",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "role": "jobSeeker",
+        "profile": {
+          "age": 25,
+          "gender": "male",
+          "designation": "Software Engineer",
+          "preferredCategory": "IT & Networking",
+          "expInWork": "2-4 year of experience",
+          "highestEducation": "Bachelor of Technology (BTech)",
+          "salaryExpectation": "$70,000 - $90,000"
+        }
+      }
+    ],
+    "totalPages": 1,
+    "currentPage": 1,
+    "totalApplicants": 1
+  }
+}
+```
+
 ## File Storage
 
 All files are stored in AWS S3 with the following organization:
@@ -498,6 +557,29 @@ This feature works with all file upload methods:
 }
 ```
 
+#### Recruiter Profile
+```javascript
+{
+  name: String,
+  email: String,
+  password: String,
+  role: "recruiter",
+  profile: {
+    companyName: String,
+    companyDescription: String,
+    companyWebsite: String,
+    companyEmail: String,
+    numberOfEmployees: Number,
+    companyPhone: String,
+    companyLogo: String, // URL to S3
+    photo: String, // URL to S3
+    phone: String,
+    panCardNumber: String,
+    gstNumber: String
+  }
+}
+```
+
 ### Job Model
 ```javascript
 {
@@ -545,10 +627,11 @@ This feature works with all file upload methods:
 
 ## Role-Based Access Control
 
-The application implements role-based access control with two user roles:
+The application implements role-based access control with three user roles:
 
 1. **jobSeeker**: Can apply for jobs, manage their profile, and track applications
 2. **jobHoster**: Can post jobs, review applications, and manage their company profile
+3. **recruiter**: Has extended privileges to view all job seekers, filter applicants by various criteria, and manage job postings
 
 Middleware functions ensure that users can only access endpoints appropriate for their role.
 

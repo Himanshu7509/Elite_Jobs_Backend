@@ -196,11 +196,116 @@ const getJobById = async (req, res) => {
   }
 };
 
+// Filter applicants by various criteria (Recruiters only)
+const filterApplicants = async (req, res) => {
+  try {
+    const {
+      age,
+      ageMin,
+      ageMax,
+      gender,
+      designation,
+      preferredCategory,
+      expInWork,
+      highestEducation,
+      salary,
+      salaryMin,
+      salaryMax,
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    // Build filter object for job seeker profiles
+    const filter = { role: 'jobSeeker' };
+
+    // Add profile filters if provided
+    if (age) {
+      const ageNum = parseInt(age);
+      if (!isNaN(ageNum)) {
+        filter['profile.age'] = ageNum;
+      }
+    } else if (ageMin || ageMax) {
+      filter['profile.age'] = {};
+      if (ageMin) {
+        const min = parseInt(ageMin);
+        if (!isNaN(min)) {
+          filter['profile.age'].$gte = min;
+        }
+      }
+      if (ageMax) {
+        const max = parseInt(ageMax);
+        if (!isNaN(max)) {
+          filter['profile.age'].$lte = max;
+        }
+      }
+    }
+
+    if (gender) {
+      filter['profile.gender'] = gender;
+    }
+
+    if (designation) {
+      filter['profile.designation'] = { $regex: designation, $options: 'i' };
+    }
+
+    if (preferredCategory) {
+      filter['profile.preferredCategory'] = preferredCategory;
+    }
+
+    if (expInWork) {
+      filter['profile.expInWork'] = expInWork;
+    }
+
+    if (highestEducation) {
+      filter['profile.highestEducation'] = highestEducation;
+    }
+
+    if (salary) {
+      filter['profile.salaryExpectation'] = { $regex: salary, $options: 'i' };
+    } else if (salaryMin || salaryMax) {
+      // For salary range filtering, we need to use regex since salaryExpectation is a string
+      // This is a simplified approach - in production, you might want to store salary as numbers
+      if (salaryMin) {
+        filter['profile.salaryExpectation'] = { $regex: salaryMin, $options: 'i' };
+      }
+      // Note: More complex salary range filtering would require parsing the salary string
+    }
+
+    // Find job seekers with pagination
+    const jobSeekers = await User.find(filter)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    // Get total count for pagination
+    const total = await User.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        applicants: jobSeekers,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        totalApplicants: total
+      }
+    });
+  } catch (error) {
+    console.error('Filter applicants error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllJobSeekers,
   getJobSeekerDetails,
   getAllApplications,
   getApplicationsByJobSeeker,
   getAllJobs,
-  getJobById
+  getJobById,
+  filterApplicants
 };

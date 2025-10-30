@@ -5,7 +5,8 @@ import {
   getAllApplications,
   getApplicationsByJobSeeker,
   getAllJobs,
-  getJobById
+  getJobById,
+  filterApplicants
 } from '../controllers/recruiter.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -18,5 +19,6 @@ recruiterRouter.get('/applications', authMiddleware, authorizeRole('recruiter'),
 recruiterRouter.get('/applications/jobseeker/:id', authMiddleware, authorizeRole('recruiter'), getApplicationsByJobSeeker);
 recruiterRouter.get('/jobs', authMiddleware, authorizeRole('recruiter'), getAllJobs);
 recruiterRouter.get('/jobs/:id', authMiddleware, authorizeRole('recruiter'), getJobById);
+recruiterRouter.get('/applicants/filter', authMiddleware, authorizeRole('recruiter'), filterApplicants);
 
 export default recruiterRouter;
