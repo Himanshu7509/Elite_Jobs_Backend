@@ -21,14 +21,28 @@ const createJob = async (req, res) => {
       experienceLevel,
       noticePeriod,
       applicationDeadline,
-      category
+      category,
+      // New fields
+      numberOfOpenings,
+      yearOfPassing,
+      shift,
+      walkInDate,
+      walkInTime
     } = req.body;
 
     // Validate required fields
-    if (!title || !description || !location || !jobType || !interviewType || !workType || !minEducation || !experienceLevel || !noticePeriod) {
+    if (!title || !description || !location || !interviewType || !workType || !experienceLevel || !noticePeriod) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: title, description, location, jobType, interviewType, workType, minEducation, experienceLevel, noticePeriod'
+        message: 'Please provide all required fields: title, description, location, interviewType, workType, experienceLevel, noticePeriod'
+      });
+    }
+
+    // Additional validation for walk-in interviews
+    if (interviewType === 'Walk-in' && (!walkInDate || !walkInTime)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Walk-in date and time are required for walk-in interviews'
       });
     }
 
@@ -68,7 +82,13 @@ const createJob = async (req, res) => {
       noticePeriod,
       applicationDeadline,
       category,
-      postedBy: req.user.userId
+      postedBy: req.user.userId,
+      // New fields
+      numberOfOpenings,
+      yearOfPassing,
+      shift,
+      walkInDate: interviewType === 'Walk-in' ? walkInDate : undefined,
+      walkInTime: interviewType === 'Walk-in' ? walkInTime : undefined
     });
 
     await job.save();
@@ -190,6 +210,16 @@ const updateJob = async (req, res) => {
       });
     }
     
+    // Additional validation for walk-in interviews
+    if (updateData.interviewType === 'Walk-in' && 
+        (updateData.walkInDate || updateData.walkInTime) &&
+        (!updateData.walkInDate || !updateData.walkInTime)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both walk-in date and time are required for walk-in interviews'
+      });
+    }
+    
     // If company information is being updated, ensure it includes logo from profile
     if (updateData.company) {
       const jobHoster = await User.findById(req.user.userId);
@@ -198,9 +228,22 @@ const updateJob = async (req, res) => {
       }
     }
     
-    // Update job
+    // Handle conditional fields for walk-in interviews
+    if (updateData.interviewType === 'Walk-in') {
+      if (updateData.walkInDate) job.walkInDate = updateData.walkInDate;
+      if (updateData.walkInTime) job.walkInTime = updateData.walkInTime;
+    } else {
+      // Clear walk-in fields if interview type is changed from walk-in
+      job.walkInDate = undefined;
+      job.walkInTime = undefined;
+    }
+    
+    // Update job with other fields
     Object.keys(updateData).forEach(key => {
-      job[key] = updateData[key];
+      // Skip walk-in fields as they're handled separately
+      if (key !== 'walkInDate' && key !== 'walkInTime') {
+        job[key] = updateData[key];
+      }
     });
     
     await job.save();

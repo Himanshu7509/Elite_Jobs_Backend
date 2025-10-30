@@ -25,11 +25,12 @@ const jobSchema = new mongoose.Schema({
   jobType: { // Replaced employmentType
     type: String,
     enum: ['Full-time', 'Part-time'],
-    required: true
+    default: 'Full-time',
+    required: false
   },
   interviewType: { // New field
     type: String,
-    enum: ['Online', 'On-site'],
+    enum: ['Online', 'On-site', 'Walk-in'],
     required: true
   },
   workType: { // New field
@@ -39,14 +40,14 @@ const jobSchema = new mongoose.Schema({
   },
   minEducation: { // New field
     type: String,
-    required: true
+    required: false
   },
   salary: {
     min: Number,
     max: Number,
     currency: {
       type: String,
-      default: 'USD'
+      default: 'INR'
     }
   },
   requirements: [String],
@@ -76,6 +77,28 @@ const jobSchema = new mongoose.Schema({
     type: String,
     enum: ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"],
     required: true
+  },
+  // New fields
+  numberOfOpenings: {
+    type: Number,
+    required: false
+  },
+  yearOfPassing: {
+    type: Number,
+    required: false
+  },
+  shift: {
+    type: String,
+    enum: ['Day', 'Night'],
+    required: false
+  },
+  walkInDate: {
+    type: Date,
+    required: false
+  },
+  walkInTime: {
+    type: String,
+    required: false
   }
 }, { timestamps: true });
 
