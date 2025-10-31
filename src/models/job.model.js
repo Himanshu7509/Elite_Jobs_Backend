@@ -19,7 +19,7 @@ const jobSchema = new mongoose.Schema({
     logo: String
   },
   location: {
-    type: String,
+    type: [String],
     required: true
   },
   jobType: { // Replaced employmentType

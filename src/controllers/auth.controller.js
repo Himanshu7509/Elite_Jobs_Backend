@@ -30,13 +30,24 @@ const signup = async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    // Check if user already exists with the same email and role
+    const existingUser = await User.findOne({ email, role });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User with this email already exists'
+        message: 'User with this email and role already exists'
       });
+    }
+
+    // Additional check for jobSeeker - ensure email is unique across all users
+    if (role === 'jobSeeker') {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already registered with another account'
+        });
+      }
     }
 
     // Create new user with appropriate profile structure
@@ -117,18 +128,26 @@ const signup = async (req, res) => {
 // Login controller
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     // Validate required fields
-    if (!email || !password) {
+    if (!email || !password || !role) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: 'Please provide email, password, and role'
       });
     }
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Validate role
+    if (!['jobSeeker', 'jobHoster', 'recruiter'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role must be either jobSeeker, jobHoster, or recruiter'
+      });
+    }
+
+    // Find user by email and role
+    const user = await User.findOne({ email, role });
     if (!user) {
       return res.status(401).json({
         success: false,

@@ -104,8 +104,7 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   password: {
     type: String,
@@ -121,6 +120,9 @@ const userSchema = new mongoose.Schema({
     default: {}
   }
 }, { timestamps: true });
+
+// Add compound index for email and role
+userSchema.index({ email: 1, role: 1 }, { unique: true });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

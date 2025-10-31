@@ -38,6 +38,14 @@ const createJob = async (req, res) => {
       });
     }
 
+    // Additional validation for location array
+    if (location && Array.isArray(location) && location.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one location is required'
+      });
+    }
+
     // Additional validation for walk-in interviews
     if (interviewType === 'Walk-in' && (!walkInDate || !walkInTime)) {
       return res.status(400).json({
@@ -125,7 +133,7 @@ const getAllJobs = async (req, res) => {
     }
     
     if (location) {
-      filter.location = { $regex: location, $options: 'i' };
+      filter.location = { $elemMatch: { $regex: location, $options: 'i' } };
     }
     
     if (employmentType) {
