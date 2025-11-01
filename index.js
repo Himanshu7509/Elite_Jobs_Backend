@@ -11,6 +11,8 @@ import dbConnect from './src/config/mongodb.js';
 import authRouter from './src/routes/auth.route.js';
 import jobRouter from './src/routes/job.route.js';
 import recruiterRouter from './src/routes/recruiter.route.js';
+import adminRouter from './src/routes/admin.route.js';
+import eliteTeamRouter from './src/routes/eliteTeam.route.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +29,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/auth', authRouter);
 app.use('/jobs', jobRouter);
 app.use('/recruiter', recruiterRouter);
+app.use('/admin', adminRouter);
+app.use('/elite-team', eliteTeamRouter);
 
 // Health check endpoint
 app.get('/', (req, res) => {

@@ -112,7 +112,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['jobSeeker', 'jobHoster', 'recruiter'],
+    enum: ['jobSeeker', 'jobHoster', 'recruiter', 'admin', 'eliteTeam'],
     required: true
   },
   profile: {
@@ -121,11 +121,11 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Add compound index for email and role
 userSchema.index({ email: 1, role: 1 }, { unique: true });
 
-// Hash password before saving
 userSchema.pre('save', async function(next) {
+  if (this.role === 'admin' || this.role === 'eliteTeam') return next();
+  
   if (!this.isModified('password')) return next();
   
   try {

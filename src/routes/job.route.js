@@ -30,15 +30,18 @@ jobRouter.post('/:id/apply', authMiddleware, authorizeRole('jobSeeker'), applyFo
 jobRouter.get('/applications/my', authMiddleware, authorizeRole('jobSeeker'), getUserApplications);
 jobRouter.delete('/account', authMiddleware, authorizeRole('jobSeeker'), deleteAccount);
 
-// Protected routes - Job Hosters and Recruiters
-jobRouter.post('/', authMiddleware, authorizeRole('jobHoster', 'recruiter'), createJob);
-jobRouter.get('/my', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getUserJobs);
-jobRouter.get('/stats', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getJobApplicationStats);
-jobRouter.put('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter'), updateJob);
-jobRouter.delete('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter'), deleteJob);
-jobRouter.get('/:id/applications', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getJobApplications);
-jobRouter.get('/:jobId/applications/:applicationId', authMiddleware, authorizeRole('jobHoster', 'recruiter'), getJobApplicationById);
-jobRouter.patch('/applications/:id/status', authMiddleware, authorizeRole('jobHoster', 'recruiter'), updateApplicationStatus);
+// Protected routes - Job Hosters, Recruiters, Admins, and EliteTeam
+jobRouter.post('/', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), createJob);
+jobRouter.get('/my', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), getUserJobs);
+jobRouter.get('/stats', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), getJobApplicationStats);
+jobRouter.put('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), updateJob);
+jobRouter.get('/:id/applications', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), getJobApplications);
+jobRouter.get('/:jobId/applications/:applicationId', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), getJobApplicationById);
+jobRouter.patch('/applications/:id/status', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), updateApplicationStatus);
+
+// Protected routes - Job Hosters, Recruiters, and Admins only (EliteTeam cannot delete)
+jobRouter.delete('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin'), deleteJob);
+
 jobRouter.delete('/account', authMiddleware, authorizeRole('jobHoster', 'recruiter'), deleteAccount);
 jobRouter.get('/applicant/:id', getApplicationById);
 

@@ -9,6 +9,37 @@ const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
+// Get or create admin user
+const getOrCreateAdmin = async () => {
+  // Check if admin user exists
+  let adminUser = await User.findOne({ role: 'admin' });
+  
+  // If no admin user exists, create one with static credentials from env
+  if (!adminUser) {
+    adminUser = new User({
+      name: 'ADMIN',
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
+      role: 'admin'
+    });
+    await adminUser.save();
+    console.log('Admin user created with email:', process.env.ADMIN_EMAIL);
+  } else {
+    // If admin user exists, update email from env variables
+    // This ensures that if env variables change, the admin credentials are updated
+    if (adminUser.email !== process.env.ADMIN_EMAIL) {
+      adminUser.email = process.env.ADMIN_EMAIL;
+      await adminUser.save();
+      console.log('Admin user email updated');
+    }
+    
+    // Update the password to match env variables
+    adminUser.password = process.env.ADMIN_PASSWORD;
+  }
+  
+  return adminUser;
+};
+
 // Signup controller
 const signup = async (req, res) => {
   try {
@@ -23,10 +54,10 @@ const signup = async (req, res) => {
     }
 
     // Validate role
-    if (!['jobSeeker', 'jobHoster', 'recruiter'].includes(role)) {
+    if (!['jobSeeker', 'jobHoster', 'recruiter', 'admin', 'eliteTeam'].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be either jobSeeker, jobHoster, or recruiter'
+        message: 'Role must be either jobSeeker, jobHoster, recruiter, admin, or eliteTeam'
       });
     }
 
@@ -48,6 +79,14 @@ const signup = async (req, res) => {
           message: 'Email already registered with another account'
         });
       }
+    }
+    
+    // Prevent eliteTeam users from signing up directly
+    if (role === 'eliteTeam') {
+      return res.status(400).json({
+        success: false,
+        message: 'eliteTeam accounts can only be created by admin'
+      });
     }
 
     // Create new user with appropriate profile structure
@@ -139,29 +178,62 @@ const login = async (req, res) => {
     }
 
     // Validate role
-    if (!['jobSeeker', 'jobHoster', 'recruiter'].includes(role)) {
+    if (!['jobSeeker', 'jobHoster', 'recruiter', 'admin', 'eliteTeam'].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be either jobSeeker, jobHoster, or recruiter'
+        message: 'Role must be either jobSeeker, jobHoster, recruiter, admin, or eliteTeam'
       });
     }
 
-    // Find user by email and role
-    const user = await User.findOne({ email, role });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
+    let user;
+    
+    // Special handling for admin role
+    if (role === 'admin') {
+      // Get or create admin user
+      user = await getOrCreateAdmin();
+      
+      // For admin, we directly compare with env variables (not hashed)
+      if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid admin credentials'
+        });
+      }
+    } else if (role === 'eliteTeam') {
+      // For eliteTeam, find user by email and role
+      user = await User.findOne({ email, role });
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+      
+      // For eliteTeam, we directly compare password (not hashed)
+      if (password !== user.password) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+    } else {
+      // Find user by email and role for non-admin roles
+      user = await User.findOne({ email, role });
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      // Check password
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
     }
 
     // Generate token
@@ -414,4 +486,4 @@ const deleteProfile = async (req, res) => {
   }
 };
 
-export { signup, login, getProfile, updateProfile, deleteProfile };
+export { signup, login, getProfile, updateProfile, deleteProfile, getOrCreateAdmin };

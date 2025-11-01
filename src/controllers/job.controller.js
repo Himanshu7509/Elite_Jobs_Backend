@@ -3,7 +3,7 @@ import Application from '../models/application.model.js';
 import User from '../models/auth.model.js';
 import { deleteFromS3 } from '../controllers/file.controller.js';
 
-// Create a new job (Job Hoster only)
+// Create a new job (Job Hoster, Recruiter, and Admin)
 const createJob = async (req, res) => {
   try {
     const {
@@ -54,23 +54,43 @@ const createJob = async (req, res) => {
       });
     }
 
-    // Get the job hoster's profile to populate company information
-    const jobHoster = await User.findById(req.user.userId);
+    let companyInfo = {};
     
-    if (!jobHoster || (jobHoster.role !== 'jobHoster' && jobHoster.role !== 'recruiter')) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only job hosters and recruiters can create jobs'
-      });
-    }
+    // For admins and eliteTeam, company info is provided in the request body
+    if (req.user.role === 'admin' || req.user.role === 'eliteTeam') {
+      // Validate company object
+      if (!req.body.company || !req.body.company.name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company name is required for admin/eliteTeam job creation'
+        });
+      }
+      
+      companyInfo = {
+        name: req.body.company.name || '',
+        description: req.body.company.description || '',
+        website: req.body.company.website || '',
+        logo: req.body.company.logo || ''
+      };
+    } else {
+      // Get the job hoster's profile to populate company information
+      const jobHoster = await User.findById(req.user.userId);
+      
+      if (!jobHoster || (jobHoster.role !== 'jobHoster' && jobHoster.role !== 'recruiter')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only job hosters, recruiters, admins, and eliteTeam can create jobs'
+        });
+      }
 
-    // Prepare company information from job hoster's profile
-    const companyInfo = {
-      name: jobHoster.profile?.companyName || '',
-      description: jobHoster.profile?.companyDescription || '',
-      website: jobHoster.profile?.companyWebsite || '',
-      logo: jobHoster.profile?.companyLogo || ''
-    };
+      // Prepare company information from job hoster's profile
+      companyInfo = {
+        name: jobHoster.profile?.companyName || '',
+        description: jobHoster.profile?.companyDescription || '',
+        website: jobHoster.profile?.companyWebsite || '',
+        logo: jobHoster.profile?.companyLogo || ''
+      };
+    }
 
     // Create new job
     const job = new Job({
@@ -202,14 +222,21 @@ const getJobById = async (req, res) => {
   }
 };
 
-// Update job (Job Hoster only - own jobs)
+// Update job (Job Hoster only - own jobs, Admin can update any job)
 const updateJob = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
     
-    // Find job and check ownership
-    const job = await Job.findOne({ _id: id, postedBy: req.user.userId });
+    let job;
+    
+    // If user is admin or eliteTeam, allow updating any job
+    if (req.user.role === 'admin' || req.user.role === 'eliteTeam') {
+      job = await Job.findById(id);
+    } else {
+      // Find job and check ownership
+      job = await Job.findOne({ _id: id, postedBy: req.user.userId });
+    }
     
     if (!job) {
       return res.status(404).json({
@@ -316,13 +343,28 @@ const updateAllJobsWithCompanyLogo = async (req, res) => {
   }
 };
 
-// Delete job (Job Hoster only - own jobs)
+// Delete job (Job Hoster only - own jobs, Admin can delete any job)
 const deleteJob = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Find job and check ownership
-    const job = await Job.findOneAndDelete({ _id: id, postedBy: req.user.userId });
+    // EliteTeam users cannot delete jobs
+    if (req.user.role === 'eliteTeam') {
+      return res.status(403).json({
+        success: false,
+        message: 'EliteTeam users do not have permission to delete jobs'
+      });
+    }
+    
+    let job;
+    
+    // If user is admin, allow deletion of any job
+    if (req.user.role === 'admin') {
+      job = await Job.findByIdAndDelete(id);
+    } else {
+      // Find job and check ownership (jobHoster or recruiter)
+      job = await Job.findOneAndDelete({ _id: id, postedBy: req.user.userId });
+    }
     
     if (!job) {
       return res.status(404).json({
@@ -378,9 +420,9 @@ const updateApplicationStatus = async (req, res) => {
       });
     }
     
-    // Check if job belongs to the authenticated hoster or if user is a recruiter
+    // Check if user is admin, recruiter, or job owner
     // Convert both IDs to strings for comparison
-    if (req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
+    if (req.user.role !== 'admin' && req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to update this application'
@@ -531,7 +573,7 @@ const applyForJob = async (req, res) => {
   }
 };
 
-// Get job applications for a job (Job Hoster only - own jobs)
+// Get job applications for a job (Job Hoster only - own jobs, Admins and Recruiters can view all)
 const getJobApplications = async (req, res) => {
   try {
     const { id } = req.params;  // Changed from jobId to id to match route parameter
@@ -546,8 +588,8 @@ const getJobApplications = async (req, res) => {
       });
     }
     
-    // Allow recruiters to view all jobs' applications
-    if (req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
+    // Allow admins and recruiters to view all jobs' applications
+    if (req.user.role !== 'admin' && req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view applications for this job'
@@ -593,13 +635,13 @@ const getUserApplications = async (req, res) => {
   }
 };
 
-// Get jobs posted by user (Job Hoster only)
+// Get jobs posted by user (Job Hoster only, Admins and Recruiters can see all)
 const getUserJobs = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     
-    // Allow recruiters to see all jobs, job hosters see only their own
-    const filter = req.user.role === 'recruiter' 
+    // Allow admins and recruiters to see all jobs, job hosters see only their own
+    const filter = (req.user.role === 'admin' || req.user.role === 'recruiter') 
       ? {} 
       : { postedBy: req.user.userId };
     
@@ -688,7 +730,7 @@ const getJobCountsByCategory = async (req, res) => {
   }
 };
 
-// Get specific applicant details for a job (Job Hoster only - own jobs)
+// Get specific applicant details for a job (Job Hoster only - own jobs, Admins and Recruiters can view all)
 const getJobApplicationById = async (req, res) => {
   try {
     const { jobId, applicationId } = req.params;
@@ -703,8 +745,8 @@ const getJobApplicationById = async (req, res) => {
       });
     }
     
-    // Allow recruiters to view all jobs' applications
-    if (req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
+    // Allow admins and recruiters to view all jobs' applications
+    if (req.user.role !== 'admin' && req.user.role !== 'recruiter' && job.postedBy.toString() !== req.user.userId.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view applications for this job'
@@ -744,13 +786,13 @@ const getJobApplicationById = async (req, res) => {
   }
 };
 
-// Get job application statistics for job hoster dashboard
+// Get job application statistics for job hoster dashboard (Admins and Recruiters can see all)
 const getJobApplicationStats = async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // Get all jobs posted by the user or all jobs for recruiters
-    const filter = req.user.role === 'recruiter' 
+    // Get all jobs posted by the user or all jobs for admins/recruiters
+    const filter = (req.user.role === 'admin' || req.user.role === 'recruiter') 
       ? {} 
       : { postedBy: userId };
     
@@ -961,8 +1003,8 @@ const deleteAccount = async (req, res) => {
       await Application.deleteMany({ applicantId: userId });
     }
     
-    // Delete user's jobs and applications to those jobs (for job hosters)
-    if (userRole === 'jobHoster') {
+    // Delete user's jobs and applications to those jobs (for job hosters and recruiters)
+    if (userRole === 'jobHoster' || userRole === 'recruiter') {
       // Find all jobs posted by this hoster
       const jobs = await Job.find({ postedBy: userId });
       
