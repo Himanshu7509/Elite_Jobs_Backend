@@ -101,6 +101,8 @@ const updateProfileWithFile = async (req, res) => {
       validFileTypes = ['resume', 'photo'];
     } else if (user.role === 'jobHoster' || user.role === 'recruiter') {
       validFileTypes = ['photo', 'companyLogo'];
+    } else if (user.role === 'admin' || user.role === 'eliteTeam') {
+      validFileTypes = ['photo', 'companyLogo'];
     }
     
     if (!determinedFileType || !validFileTypes.includes(determinedFileType)) {
@@ -218,6 +220,8 @@ const uploadMultipleFiles = async (req, res) => {
       if (user.role === 'jobSeeker') {
         validFields = ['resume', 'photo'];
       } else if (user.role === 'jobHoster' || user.role === 'recruiter') {
+        validFields = ['photo', 'companyLogo'];
+      } else if (user.role === 'admin' || user.role === 'eliteTeam') {
         validFields = ['photo', 'companyLogo'];
       }
       
@@ -448,7 +452,7 @@ const updateResume = async (req, res) => {
   }
 };
 
-// Update company logo (job hoster only)
+// Update company logo (job hoster, recruiter, admin, and eliteTeam)
 const updateCompanyLogo = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -477,11 +481,11 @@ const updateCompanyLogo = async (req, res) => {
       });
     }
     
-    // Ensure user is a job hoster or recruiter
-    if (user.role !== 'jobHoster' && user.role !== 'recruiter') {
+    // Ensure user is a job hoster, recruiter, admin, or eliteTeam
+    if (user.role !== 'jobHoster' && user.role !== 'recruiter' && user.role !== 'admin' && user.role !== 'eliteTeam') {
       return res.status(403).json({
         success: false,
-        message: 'Only job hosters and recruiters can update company logos'
+        message: 'Only job hosters, recruiters, admins, and eliteTeam users can update company logos'
       });
     }
     
@@ -513,16 +517,18 @@ const updateCompanyLogo = async (req, res) => {
       });
     }
     
-    // Update all jobs posted by this job hoster or recruiter with the new company logo
-    try {
-      await Job.updateMany(
-        { postedBy: userId },
-        { 'company.logo': fileUrl }
-      );
-    } catch (updateError) {
-      console.error('Error updating jobs with new company logo:', updateError);
-      // We don't return an error here because the profile update was successful
-      // We just log the error and continue
+    // Update all jobs posted by this user with the new company logo (for job hosters and recruiters)
+    if (user.role === 'jobHoster' || user.role === 'recruiter') {
+      try {
+        await Job.updateMany(
+          { postedBy: userId },
+          { 'company.logo': fileUrl }
+        );
+      } catch (updateError) {
+        console.error('Error updating jobs with new company logo:', updateError);
+        // We don't return an error here because the profile update was successful
+        // We just log the error and continue
+      }
     }
 
     res.status(200).json({
