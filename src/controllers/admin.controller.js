@@ -426,109 +426,134 @@ const getAllJobSeekers = async (req, res) => {
 // Get user statistics by role (weekly and monthly) for admin dashboard
 const getUserStatistics = async (req, res) => {
   try {
-    const { role, period = 'week' } = req.query; // role: all, jobSeeker, jobHoster, recruiter, eliteTeam, period: week, month
+    const { role } = req.query; // role: all, jobSeeker, jobHoster, recruiter, eliteTeam
     
-    // Define date range based on period
-    const endDate = new Date();
-    const startDate = new Date();
+    // Calculate date ranges
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
-    if (period === 'month') {
-      startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
-    } else {
-      startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
-    }
-    
-    // Build match criteria
-    const matchCriteria = {
+    // Build match criteria for weekly data
+    const weeklyMatchCriteria = {
       createdAt: {
-        $gte: startDate,
-        $lte: endDate
+        $gte: oneWeekAgo,
+        $lte: now
       }
     };
     
-    // Add role filter if specified
+    // Build match criteria for monthly data
+    const monthlyMatchCriteria = {
+      createdAt: {
+        $gte: oneMonthAgo,
+        $lte: now
+      }
+    };
+    
+    // Add role filter if specified and not 'all'
     if (role && role !== 'all') {
-      matchCriteria.role = role;
+      weeklyMatchCriteria.role = role;
+      monthlyMatchCriteria.role = role;
     }
     
-    let groupFormat;
-    if (period === 'month') {
-      // Group by year-month for monthly data
-      groupFormat = { $dateToString: { format: '%Y-%m', date: '$createdAt' } };
-    } else {
-      // Group by year and week number for weekly data
-      // Calculate week number manually since %W is not supported
-      groupFormat = {
-        $concat: [
-          { $toString: { $year: '$createdAt' } },
-          '-',
-          {
-            $let: {
-              vars: {
-                week: {
-                  $floor: {
-                    $divide: [
-                      { $subtract: [{ $dayOfYear: '$createdAt' }, { $dayOfWeek: '$createdAt' }] },
-                      7
-                    ]
-                  }
-                }
-              },
-              in: {
-                $cond: {
-                  if: { $lt: ['$$week', 10] },
-                  then: { $concat: ['0', { $toString: '$$week' }] },
-                  else: { $toString: '$$week' }
-                }
-              }
-            }
-          }
-        ]
+    // Get weekly user registrations grouped by day
+    const weeklyStats = {};
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Initialize weekly stats with zero counts
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateString = date.toISOString().split('T')[0];
+      const dayName = dayNames[date.getDay()];
+      weeklyStats[dateString] = {
+        count: 0,
+        day: dayName
       };
     }
     
-    // Aggregate user data by role and period
-    const userData = await User.aggregate([
-      { $match: matchCriteria },
-      {
-        $group: {
-          _id: {
-            period: groupFormat,
-            role: '$role'
-          },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: {
-          '_id.period': 1
-        }
-      }
-    ]);
+    // Get users registered in the last week (filtered by role if specified)
+    const weeklyUsers = await User.find(weeklyMatchCriteria);
     
-    // Get total counts for each role
-    const totalUsers = await User.aggregate([
-      {
-        $group: {
-          _id: '$role',
-          count: { $sum: 1 }
-        }
+    // Count users by registration day
+    weeklyUsers.forEach(user => {
+      const date = user.createdAt.toISOString().split('T')[0];
+      if (weeklyStats[date] !== undefined) {
+        weeklyStats[date].count++;
       }
-    ]);
+    });
     
-    // Format the response
-    const formattedData = {
-      period: period,
-      data: userData,
-      totals: totalUsers.reduce((acc, item) => {
+    // Format weekly stats
+    const formattedWeeklyStats = Object.keys(weeklyStats).map(date => ({
+      date,
+      day: weeklyStats[date].day,
+      count: weeklyStats[date].count
+    }));
+    
+    // Get monthly user registrations grouped by week
+    const monthlyStats = [];
+    for (let i = 3; i >= 0; i--) {
+      const weekEnd = new Date(now);
+      weekEnd.setDate(weekEnd.getDate() - i * 7);
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekStart.getDate() - 6);
+      
+      // Count users in this week (filtered by role if specified)
+      const count = await User.countDocuments({
+        ...monthlyMatchCriteria,
+        createdAt: {
+          $gte: weekStart,
+          $lte: weekEnd
+        }
+      });
+      
+      monthlyStats.push({
+        weekStart: weekStart.toISOString().split('T')[0],
+        weekEnd: weekEnd.toISOString().split('T')[0],
+        count
+      });
+    }
+    
+    // Get total counts for each role or just the specified role
+    let totals = {};
+    if (role && role !== 'all') {
+      // If a specific role is requested, only show that role's count
+      const roleCount = await User.countDocuments({ role });
+      totals[role] = roleCount;
+    } else {
+      // If all roles are requested or no role specified, show all role counts
+      const totalUsersAggregation = await User.aggregate([
+        {
+          $group: {
+            _id: '$role',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+      
+      totals = totalUsersAggregation.reduce((acc, item) => {
         acc[item._id] = item.count;
         return acc;
-      }, {})
-    };
+      }, {});
+    }
+    
+    // Calculate total users (filtered by role if specified)
+    let totalFilteredUsers = 0;
+    if (role && role !== 'all') {
+      totalFilteredUsers = totals[role];
+    } else {
+      totalFilteredUsers = Object.values(totals).reduce((sum, count) => sum + count, 0);
+    }
     
     res.status(200).json({
       success: true,
-      data: formattedData
+      data: {
+        overallStats: {
+          weeklyStats: formattedWeeklyStats,
+          monthlyStats,
+          totalUsers: totalFilteredUsers
+        },
+        roleStats: totals
+      }
     });
   } catch (error) {
     console.error('Get user statistics error:', error);
