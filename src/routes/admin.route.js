@@ -5,7 +5,8 @@ import {
   deleteUserAccount,
   getAllJobs,
   getJobSeekerWithApplications,
-  getAllJobSeekers
+  getAllJobSeekers,
+  getUserStatistics // Import the new function
 } from '../controllers/admin.controller.js';
 import { getAllApplications } from '../controllers/recruiter.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
@@ -20,5 +21,6 @@ adminRouter.get('/jobs', authMiddleware, authorizeRole('admin'), getAllJobs);
 adminRouter.get('/applications', authMiddleware, authorizeRole('admin'), getAllApplications);
 adminRouter.get('/jobseekers/:id', authMiddleware, authorizeRole('admin'), getJobSeekerWithApplications);
 adminRouter.get('/jobseekers', authMiddleware, authorizeRole('admin'), getAllJobSeekers);
+adminRouter.get('/statistics/users', authMiddleware, authorizeRole('admin'), getUserStatistics); // Add the new route
 
 export default adminRouter;

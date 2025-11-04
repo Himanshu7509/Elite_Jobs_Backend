@@ -423,11 +423,129 @@ const getAllJobSeekers = async (req, res) => {
   }
 };
 
+// Get user statistics by role (weekly and monthly) for admin dashboard
+const getUserStatistics = async (req, res) => {
+  try {
+    const { role, period = 'week' } = req.query; // role: all, jobSeeker, jobHoster, recruiter, eliteTeam, period: week, month
+    
+    // Define date range based on period
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    if (period === 'month') {
+      startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
+    } else {
+      startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
+    }
+    
+    // Build match criteria
+    const matchCriteria = {
+      createdAt: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    };
+    
+    // Add role filter if specified
+    if (role && role !== 'all') {
+      matchCriteria.role = role;
+    }
+    
+    let groupFormat;
+    if (period === 'month') {
+      // Group by year-month for monthly data
+      groupFormat = { $dateToString: { format: '%Y-%m', date: '$createdAt' } };
+    } else {
+      // Group by year and week number for weekly data
+      // Calculate week number manually since %W is not supported
+      groupFormat = {
+        $concat: [
+          { $toString: { $year: '$createdAt' } },
+          '-',
+          {
+            $let: {
+              vars: {
+                week: {
+                  $floor: {
+                    $divide: [
+                      { $subtract: [{ $dayOfYear: '$createdAt' }, { $dayOfWeek: '$createdAt' }] },
+                      7
+                    ]
+                  }
+                }
+              },
+              in: {
+                $cond: {
+                  if: { $lt: ['$$week', 10] },
+                  then: { $concat: ['0', { $toString: '$$week' }] },
+                  else: { $toString: '$$week' }
+                }
+              }
+            }
+          }
+        ]
+      };
+    }
+    
+    // Aggregate user data by role and period
+    const userData = await User.aggregate([
+      { $match: matchCriteria },
+      {
+        $group: {
+          _id: {
+            period: groupFormat,
+            role: '$role'
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: {
+          '_id.period': 1
+        }
+      }
+    ]);
+    
+    // Get total counts for each role
+    const totalUsers = await User.aggregate([
+      {
+        $group: {
+          _id: '$role',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Format the response
+    const formattedData = {
+      period: period,
+      data: userData,
+      totals: totalUsers.reduce((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {})
+    };
+    
+    res.status(200).json({
+      success: true,
+      data: formattedData
+    });
+  } catch (error) {
+    console.error('Get user statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export {
   createJobDirect,
   getAllApplicants,
   deleteUserAccount,
   getAllJobs,
   getJobSeekerWithApplications,
-  getAllJobSeekers
+  getAllJobSeekers,
+  getUserStatistics // Add this export
 };
