@@ -126,6 +126,11 @@ const getAllApplicants = async (req, res) => {
       .populate('jobId')
       .sort({ appliedAt: -1 });
 
+    // Get all jobs posted by job hosters, recruiters, eliteTeam, and admin users
+    const jobs = await Job.find({})
+      .populate('postedBy', 'name email role profile')
+      .sort({ createdAt: -1 });
+
     // Group applications by user
     const applicantsMap = {};
     
@@ -133,7 +138,8 @@ const getAllApplicants = async (req, res) => {
     users.forEach(user => {
       applicantsMap[user._id.toString()] = {
         user: user,
-        applications: []
+        applications: [],
+        postedJobs: [] // Add postedJobs array
       };
     });
 
@@ -142,6 +148,14 @@ const getAllApplicants = async (req, res) => {
       const userId = application.applicantId._id.toString();
       if (applicantsMap[userId]) {
         applicantsMap[userId].applications.push(application);
+      }
+    });
+
+    // Add posted jobs to respective users
+    jobs.forEach(job => {
+      const userId = job.postedBy._id.toString();
+      if (applicantsMap[userId]) {
+        applicantsMap[userId].postedJobs.push(job);
       }
     });
 
@@ -274,9 +288,15 @@ const getAllJobs = async (req, res) => {
       filter.postedBy = postedBy;
     }
     
-    // Get jobs with pagination
+    // Get jobs with pagination and populate all relevant details for admin
     const jobs = await Job.find(filter)
-      .populate('postedBy', 'name email role profile')
+      .populate({
+        path: 'postedBy',
+        select: '-password', // Exclude password for security
+        populate: {
+          path: 'profile' // Populate the entire profile details
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -303,9 +323,111 @@ const getAllJobs = async (req, res) => {
   }
 };
 
+// Get specific job seeker details with their applied jobs (Admin only)
+const getJobSeekerWithApplications = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find job seeker by ID
+    const jobSeeker = await User.findById(id)
+      .select('-password');
+
+    if (!jobSeeker || jobSeeker.role !== 'jobSeeker') {
+      return res.status(404).json({
+        success: false,
+        message: 'Job seeker not found'
+      });
+    }
+
+    // Find all applications for this job seeker and populate job details
+    const applications = await Application.find({ applicantId: id })
+      .populate({
+        path: 'jobId',
+        populate: {
+          path: 'postedBy',
+          select: 'name email profile'
+        }
+      })
+      .sort({ appliedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        jobSeeker,
+        applications
+      }
+    });
+  } catch (error) {
+    console.error('Get job seeker with applications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all job seekers (Admin only)
+const getAllJobSeekers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, gender, experienceLevel } = req.query;
+    
+    // Build filter object for job seekers
+    const filter = { role: 'jobSeeker' };
+    
+    // Add search filter if provided
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Add gender filter if provided
+    if (gender) {
+      filter['profile.gender'] = gender;
+    }
+    
+    // Add experience level filter if provided
+    if (experienceLevel) {
+      filter['profile.expInWork'] = experienceLevel;
+    }
+    
+    // Get job seekers with pagination
+    const jobSeekers = await User.find(filter)
+      .select('-password') // Exclude password for security
+      .populate('profile') // Populate profile details
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+      
+    // Get total count for pagination
+    const total = await User.countDocuments(filter);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        jobSeekers,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        totalJobSeekers: total
+      }
+    });
+  } catch (error) {
+    console.error('Get all job seekers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export {
   createJobDirect,
   getAllApplicants,
   deleteUserAccount,
-  getAllJobs
+  getAllJobs,
+  getJobSeekerWithApplications,
+  getAllJobSeekers
 };

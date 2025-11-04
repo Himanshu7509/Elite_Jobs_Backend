@@ -3,8 +3,11 @@ import {
   createJobDirect,
   getAllApplicants,
   deleteUserAccount,
-  getAllJobs
+  getAllJobs,
+  getJobSeekerWithApplications,
+  getAllJobSeekers
 } from '../controllers/admin.controller.js';
+import { getAllApplications } from '../controllers/recruiter.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
 const adminRouter = express.Router();
@@ -14,5 +17,8 @@ adminRouter.post('/jobs', authMiddleware, authorizeRole('admin'), createJobDirec
 adminRouter.get('/applicants', authMiddleware, authorizeRole('admin'), getAllApplicants);
 adminRouter.delete('/users/:userId', authMiddleware, authorizeRole('admin'), deleteUserAccount);
 adminRouter.get('/jobs', authMiddleware, authorizeRole('admin'), getAllJobs);
+adminRouter.get('/applications', authMiddleware, authorizeRole('admin'), getAllApplications);
+adminRouter.get('/jobseekers/:id', authMiddleware, authorizeRole('admin'), getJobSeekerWithApplications);
+adminRouter.get('/jobseekers', authMiddleware, authorizeRole('admin'), getAllJobSeekers);
 
 export default adminRouter;
