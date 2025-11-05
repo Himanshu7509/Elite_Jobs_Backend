@@ -192,37 +192,6 @@ const getAllJobs = async (req, res) => {
       }
     }
     
-    // Debug: Log the filter being used
-    console.log('Job filter:', JSON.stringify(filter, null, 2));
-    
-    // Special debugging for verification status
-    if (verificationStatus) {
-      // Let's see what's actually in the database
-      const allJobs = await Job.find({ isActive: true });
-      console.log(`Total active jobs: ${allJobs.length}`);
-      
-      // Check for jobs with and without verificationStatus field
-      const jobsWithVerificationStatus = allJobs.filter(job => job.verificationStatus !== undefined);
-      const jobsWithoutVerificationStatus = allJobs.filter(job => job.verificationStatus === undefined);
-      
-      console.log(`Jobs with verificationStatus: ${jobsWithVerificationStatus.length}`);
-      console.log(`Jobs without verificationStatus: ${jobsWithoutVerificationStatus.length}`);
-      
-      const verifiedJobs = allJobs.filter(job => job.verificationStatus === 'verified');
-      const notVerifiedJobs = allJobs.filter(job => job.verificationStatus === 'not verified');
-      
-      console.log(`Verified jobs: ${verifiedJobs.length}`);
-      console.log(`Not verified jobs: ${notVerifiedJobs.length}`);
-      
-      // Check for any other values that might be stored
-      const allStatuses = [...new Set(allJobs.map(job => job.verificationStatus))];
-      console.log('All verification statuses found:', allStatuses);
-      
-      if (notVerifiedJobs.length > 0) {
-        console.log('Sample not verified job verificationStatus value:', JSON.stringify(notVerifiedJobs[0].verificationStatus));
-      }
-    }
-    
     // Get jobs with pagination
     const jobs = await Job.find(filter)
       .populate('postedBy', 'name email profile')
@@ -230,14 +199,6 @@ const getAllJobs = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
       
-    // Debug: Log the number of jobs found
-    console.log(`Found ${jobs.length} jobs matching filter`);
-    
-    // Also log the verification status of the first few jobs to see what we're getting
-    if (jobs.length > 0) {
-      console.log('First 3 jobs verification statuses:', jobs.slice(0, 3).map(job => job.verificationStatus));
-    }
-    
     // Get total count for pagination
     const total = await Job.countDocuments(filter);
     
@@ -1202,9 +1163,6 @@ const getJobsByVerificationStatus = async (req, res) => {
   try {
     let { verificationStatus, page = 1, limit = 10 } = req.query;
     
-    // Debug: Log the received query parameters
-    console.log('Received verificationStatus parameter:', verificationStatus);
-    
     // Handle URL encoding issues for "not verified" status
     if (verificationStatus) {
       // If verificationStatus is an array (due to multiple values), take the first one
@@ -1227,9 +1185,6 @@ const getJobsByVerificationStatus = async (req, res) => {
       }
     }
     
-    // Debug: Log the normalized verification status
-    console.log('Normalized verificationStatus:', verificationStatus);
-    
     // Validate verification status
     const validStatuses = ['verified', 'not verified'];
     if (!validStatuses.includes(verificationStatus)) {
@@ -1245,32 +1200,12 @@ const getJobsByVerificationStatus = async (req, res) => {
       verificationStatus: verificationStatus
     };
     
-    // Debug: Log the filter being used
-    console.log('Verification filter:', JSON.stringify(filter, null, 2));
-    
-    // Let's also check what's actually in the database
-    const allJobs = await Job.find({ isActive: true });
-    console.log(`Total active jobs: ${allJobs.length}`);
-    
-    const verifiedJobs = allJobs.filter(job => job.verificationStatus === 'verified');
-    const notVerifiedJobs = allJobs.filter(job => job.verificationStatus === 'not verified');
-    
-    console.log(`Verified jobs: ${verifiedJobs.length}`);
-    console.log(`Not verified jobs: ${notVerifiedJobs.length}`);
-    
-    if (notVerifiedJobs.length > 0) {
-      console.log('Sample not verified job verificationStatus value:', JSON.stringify(notVerifiedJobs[0].verificationStatus));
-    }
-    
     // Get jobs with pagination
     const jobs = await Job.find(filter)
       .populate('postedBy', 'name email role profile')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-      
-    // Debug: Log the number of jobs found
-    console.log(`Found ${jobs.length} jobs with verification status: ${verificationStatus}`);
       
     // Get total count for pagination
     const total = await Job.countDocuments(filter);
@@ -1286,6 +1221,53 @@ const getJobsByVerificationStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Get jobs by verification status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get job counts by verification status
+const getJobCountsByVerificationStatus = async (req, res) => {
+  try {
+    // Count verified jobs
+    const verifiedJobsCount = await Job.countDocuments({ 
+      isActive: true, 
+      verificationStatus: 'verified' 
+    });
+    
+    // Count not verified jobs
+    const notVerifiedJobsCount = await Job.countDocuments({ 
+      isActive: true, 
+      verificationStatus: 'not verified' 
+    });
+    
+    // Also count jobs without verificationStatus field (should be 0 after migration)
+    const jobsWithoutVerificationStatus = await Job.countDocuments({ 
+      isActive: true, 
+      verificationStatus: { $exists: false } 
+    });
+    
+    // Also count jobs with null verificationStatus (should be 0 after migration)
+    const jobsWithNullVerificationStatus = await Job.countDocuments({ 
+      isActive: true, 
+      verificationStatus: null 
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        verified: verifiedJobsCount,
+        notVerified: notVerifiedJobsCount,
+        withoutVerificationStatus: jobsWithoutVerificationStatus,
+        withNullVerificationStatus: jobsWithNullVerificationStatus,
+        total: verifiedJobsCount + notVerifiedJobsCount + jobsWithoutVerificationStatus + jobsWithNullVerificationStatus
+      }
+    });
+  } catch (error) {
+    console.error('Get job counts by verification status error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -1313,5 +1295,6 @@ export {
   getJobApplicationStats,
   updateJobVerificationStatus,
   getJobsByVerificationStatus,
-  migrateVerificationStatus // Add the new export
+  migrateVerificationStatus,
+  getJobCountsByVerificationStatus // Add the new export
 };
