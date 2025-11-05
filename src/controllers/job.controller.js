@@ -139,7 +139,7 @@ const createJob = async (req, res) => {
 // Get all jobs (Public)
 const getAllJobs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, location, employmentType, experienceLevel } = req.query;
+    const { page = 1, limit = 10, search, location, employmentType, experienceLevel, verificationStatus } = req.query;
     
     // Build filter object
     const filter = { isActive: true };
@@ -164,6 +164,65 @@ const getAllJobs = async (req, res) => {
       filter.experienceLevel = experienceLevel;
     }
     
+    // Add verification status filter if provided
+    if (verificationStatus) {
+      // Handle URL encoding issues for "not verified" status
+      let status = verificationStatus;
+      if (status) {
+        // If status is an array (due to multiple values), take the first one
+        if (Array.isArray(status)) {
+          status = status[0];
+        }
+        
+        // Normalize the status by trimming and handling common variations
+        status = status.trim();
+        
+        // Handle common URL encoding variations for "not verified"
+        if (status.toLowerCase() === "not verified" || 
+            status === "not_verified" || 
+            status === "not-verified" ||
+            status === "not%20verified" ||
+            status === "not+verified") {
+          status = "not verified";
+        } else if (status.toLowerCase() === "verified") {
+          status = "verified";
+        }
+        
+        filter.verificationStatus = status;
+      }
+    }
+    
+    // Debug: Log the filter being used
+    console.log('Job filter:', JSON.stringify(filter, null, 2));
+    
+    // Special debugging for verification status
+    if (verificationStatus) {
+      // Let's see what's actually in the database
+      const allJobs = await Job.find({ isActive: true });
+      console.log(`Total active jobs: ${allJobs.length}`);
+      
+      // Check for jobs with and without verificationStatus field
+      const jobsWithVerificationStatus = allJobs.filter(job => job.verificationStatus !== undefined);
+      const jobsWithoutVerificationStatus = allJobs.filter(job => job.verificationStatus === undefined);
+      
+      console.log(`Jobs with verificationStatus: ${jobsWithVerificationStatus.length}`);
+      console.log(`Jobs without verificationStatus: ${jobsWithoutVerificationStatus.length}`);
+      
+      const verifiedJobs = allJobs.filter(job => job.verificationStatus === 'verified');
+      const notVerifiedJobs = allJobs.filter(job => job.verificationStatus === 'not verified');
+      
+      console.log(`Verified jobs: ${verifiedJobs.length}`);
+      console.log(`Not verified jobs: ${notVerifiedJobs.length}`);
+      
+      // Check for any other values that might be stored
+      const allStatuses = [...new Set(allJobs.map(job => job.verificationStatus))];
+      console.log('All verification statuses found:', allStatuses);
+      
+      if (notVerifiedJobs.length > 0) {
+        console.log('Sample not verified job verificationStatus value:', JSON.stringify(notVerifiedJobs[0].verificationStatus));
+      }
+    }
+    
     // Get jobs with pagination
     const jobs = await Job.find(filter)
       .populate('postedBy', 'name email profile')
@@ -171,6 +230,14 @@ const getAllJobs = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
       
+    // Debug: Log the number of jobs found
+    console.log(`Found ${jobs.length} jobs matching filter`);
+    
+    // Also log the verification status of the first few jobs to see what we're getting
+    if (jobs.length > 0) {
+      console.log('First 3 jobs verification statuses:', jobs.slice(0, 3).map(job => job.verificationStatus));
+    }
+    
     // Get total count for pagination
     const total = await Job.countDocuments(filter);
     
@@ -335,6 +402,56 @@ const updateAllJobsWithCompanyLogo = async (req, res) => {
     });
   } catch (error) {
     console.error('Update all jobs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Function to migrate existing jobs to have verificationStatus field
+const migrateVerificationStatus = async (req, res) => {
+  try {
+    // Only allow this for admin users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admin users can run this migration'
+      });
+    }
+    
+    // Find all jobs that don't have verificationStatus field
+    const jobsWithoutVerificationStatus = await Job.find({ 
+      verificationStatus: { $exists: false } 
+    });
+    
+    // Update each job to have the default verificationStatus
+    let updatedCount = 0;
+    for (const job of jobsWithoutVerificationStatus) {
+      job.verificationStatus = 'not verified';
+      await job.save();
+      updatedCount++;
+    }
+    
+    // Also update jobs that might have null verificationStatus
+    const jobsWithNullVerificationStatus = await Job.find({ 
+      verificationStatus: null 
+    });
+    
+    for (const job of jobsWithNullVerificationStatus) {
+      job.verificationStatus = 'not verified';
+      await job.save();
+      updatedCount++;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Updated ${updatedCount} jobs with default verificationStatus`,
+      updatedJobs: updatedCount
+    });
+  } catch (error) {
+    console.error('Migration error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -1037,6 +1154,146 @@ const deleteAccount = async (req, res) => {
   }
 };
 
+// Update job verification status (Admin and EliteTeam only)
+const updateJobVerificationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { verificationStatus } = req.body;
+
+    // Validate verification status
+    if (!['verified', 'not verified'].includes(verificationStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification status must be either "verified" or "not verified"'
+      });
+    }
+
+    // Find the job and update verification status
+    const job = await Job.findByIdAndUpdate(
+      id,
+      { verificationStatus },
+      { new: true, runValidators: true }
+    ).populate('postedBy', 'name email role profile');
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Job verification status updated successfully',
+      data: job
+    });
+  } catch (error) {
+    console.error('Update job verification status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get jobs by verification status (Admin and EliteTeam only)
+const getJobsByVerificationStatus = async (req, res) => {
+  try {
+    let { verificationStatus, page = 1, limit = 10 } = req.query;
+    
+    // Debug: Log the received query parameters
+    console.log('Received verificationStatus parameter:', verificationStatus);
+    
+    // Handle URL encoding issues for "not verified" status
+    if (verificationStatus) {
+      // If verificationStatus is an array (due to multiple values), take the first one
+      if (Array.isArray(verificationStatus)) {
+        verificationStatus = verificationStatus[0];
+      }
+      
+      // Normalize the status by trimming and handling common variations
+      verificationStatus = verificationStatus.trim();
+      
+      // Handle common URL encoding variations for "not verified"
+      if (verificationStatus.toLowerCase() === "not verified" || 
+          verificationStatus === "not_verified" || 
+          verificationStatus === "not-verified" ||
+          verificationStatus === "not%20verified" ||
+          verificationStatus === "not+verified") {
+        verificationStatus = "not verified";
+      } else if (verificationStatus.toLowerCase() === "verified") {
+        verificationStatus = "verified";
+      }
+    }
+    
+    // Debug: Log the normalized verification status
+    console.log('Normalized verificationStatus:', verificationStatus);
+    
+    // Validate verification status
+    const validStatuses = ['verified', 'not verified'];
+    if (!validStatuses.includes(verificationStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification status must be either "verified" or "not verified"'
+      });
+    }
+    
+    // Build filter object
+    const filter = { 
+      isActive: true,
+      verificationStatus: verificationStatus
+    };
+    
+    // Debug: Log the filter being used
+    console.log('Verification filter:', JSON.stringify(filter, null, 2));
+    
+    // Let's also check what's actually in the database
+    const allJobs = await Job.find({ isActive: true });
+    console.log(`Total active jobs: ${allJobs.length}`);
+    
+    const verifiedJobs = allJobs.filter(job => job.verificationStatus === 'verified');
+    const notVerifiedJobs = allJobs.filter(job => job.verificationStatus === 'not verified');
+    
+    console.log(`Verified jobs: ${verifiedJobs.length}`);
+    console.log(`Not verified jobs: ${notVerifiedJobs.length}`);
+    
+    if (notVerifiedJobs.length > 0) {
+      console.log('Sample not verified job verificationStatus value:', JSON.stringify(notVerifiedJobs[0].verificationStatus));
+    }
+    
+    // Get jobs with pagination
+    const jobs = await Job.find(filter)
+      .populate('postedBy', 'name email role profile')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+      
+    // Debug: Log the number of jobs found
+    console.log(`Found ${jobs.length} jobs with verification status: ${verificationStatus}`);
+      
+    // Get total count for pagination
+    const total = await Job.countDocuments(filter);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        jobs,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        totalJobs: total
+      }
+    });
+  } catch (error) {
+    console.error('Get jobs by verification status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export {
   createJob,
   getAllJobs,
@@ -1053,5 +1310,8 @@ export {
   updateAllJobsWithCompanyLogo,
   getJobCountsByCategory,
   getJobApplicationById,
-  getJobApplicationStats
+  getJobApplicationStats,
+  updateJobVerificationStatus,
+  getJobsByVerificationStatus,
+  migrateVerificationStatus // Add the new export
 };

@@ -99,6 +99,12 @@ const jobSchema = new mongoose.Schema({
   walkInTime: {
     type: String,
     required: false
+  },
+  // Verification status field
+  verificationStatus: {
+    type: String,
+    enum: ['verified', 'not verified'],
+    default: 'not verified'
   }
 }, { timestamps: true });
 

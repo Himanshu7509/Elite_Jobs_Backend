@@ -15,7 +15,10 @@ import {
   updateAllJobsWithCompanyLogo,
   getJobCountsByCategory,
   getJobApplicationById,
-  getJobApplicationStats
+  getJobApplicationStats,
+  updateJobVerificationStatus,
+  getJobsByVerificationStatus,
+  migrateVerificationStatus // Import the new function
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -38,6 +41,13 @@ jobRouter.put('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'a
 jobRouter.get('/:id/applications', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), getJobApplications);
 jobRouter.get('/:jobId/applications/:applicationId', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), getJobApplicationById);
 jobRouter.patch('/applications/:id/status', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin', 'eliteTeam'), updateApplicationStatus);
+// New route for updating job verification status (Admin and EliteTeam only)
+jobRouter.patch('/:id/verification', authMiddleware, authorizeRole('admin', 'eliteTeam'), updateJobVerificationStatus);
+// New route for getting jobs by verification status (Admin and EliteTeam only)
+jobRouter.get('/verification', authMiddleware, authorizeRole('admin', 'eliteTeam'), getJobsByVerificationStatus);
+
+// Migration route (Admin only)
+jobRouter.post('/migrate-verification-status', authMiddleware, authorizeRole('admin'), migrateVerificationStatus);
 
 // Protected routes - Job Hosters, Recruiters, and Admins only (EliteTeam cannot delete)
 jobRouter.delete('/:id', authMiddleware, authorizeRole('jobHoster', 'recruiter', 'admin'), deleteJob);
