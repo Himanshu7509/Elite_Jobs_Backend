@@ -69,7 +69,7 @@ const uploadFile = async (req, res) => {
 const updateProfileWithFile = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { fileType } = req.body; // 'resume', 'photo', 'companyLogo'
+    const { fileType } = req.body; // 'resume', 'photo', 'companyLogo', 'companyDocument'
     
     // Handle both single file (from .single()) and field-based file (from .fields())
     const file = req.file || (req.files && Object.values(req.files)[0] && Object.values(req.files)[0][0]);
@@ -100,7 +100,7 @@ const updateProfileWithFile = async (req, res) => {
     if (user.role === 'jobSeeker') {
       validFileTypes = ['resume', 'photo'];
     } else if (user.role === 'jobHoster' || user.role === 'recruiter') {
-      validFileTypes = ['photo', 'companyLogo'];
+      validFileTypes = ['photo', 'companyLogo', 'companyDocument'];
     } else if (user.role === 'admin' || user.role === 'eliteTeam') {
       validFileTypes = ['photo', 'companyLogo'];
     }
@@ -120,6 +120,13 @@ const updateProfileWithFile = async (req, res) => {
       });
     }
     
+    if (determinedFileType === 'companyDocument' && file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only PDF files are allowed for company documents'
+      });
+    }
+    
     if ((determinedFileType === 'photo' || determinedFileType === 'companyLogo') && !file.mimetype.startsWith('image/')) {
       return res.status(400).json({
         success: false,
@@ -132,19 +139,28 @@ const updateProfileWithFile = async (req, res) => {
     if (determinedFileType === 'resume') folder = 'job-files/resumes';
     if (determinedFileType === 'photo') folder = 'job-files/photos';
     if (determinedFileType === 'companyLogo') folder = 'job-files/logos';
+    if (determinedFileType === 'companyDocument') folder = 'job-files/company-docs';
     
     const fileUrl = await uploadToS3(file, folder);
     
     // Prepare update object
-    const updateData = {};
-    updateData[`profile.${determinedFileType}`] = fileUrl;
+    let updateData = {};
+    if (determinedFileType === 'companyDocument') {
+      // For company documents, we push to the array
+      updateData = { 
+        $push: { [`profile.${determinedFileType}`]: fileUrl }
+      };
+    } else {
+      // For other file types, we set the field directly
+      updateData[`profile.${determinedFileType}`] = fileUrl;
+    }
     
     console.log('Updating profile with data:', updateData);
     
     // Update user profile
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { $set: updateData },
+      updateData,
       { new: true, runValidators: true }
     ).select('-password');
     
@@ -210,6 +226,7 @@ const uploadMultipleFiles = async (req, res) => {
     
     // Validate files based on user role and field names
     const updates = {};
+    const arrayUpdates = {}; // For companyDocument which should be pushed to an array
     
     // Process each uploaded file
     for (const [fieldName, fileArray] of Object.entries(files)) {
@@ -220,7 +237,7 @@ const uploadMultipleFiles = async (req, res) => {
       if (user.role === 'jobSeeker') {
         validFields = ['resume', 'photo'];
       } else if (user.role === 'jobHoster' || user.role === 'recruiter') {
-        validFields = ['photo', 'companyLogo'];
+        validFields = ['photo', 'companyLogo', 'companyDocument'];
       } else if (user.role === 'admin' || user.role === 'eliteTeam') {
         validFields = ['photo', 'companyLogo'];
       }
@@ -233,10 +250,10 @@ const uploadMultipleFiles = async (req, res) => {
       }
       
       // Validate file type based on field name
-      if (fieldName === 'resume' && file.mimetype !== 'application/pdf') {
+      if ((fieldName === 'resume' || fieldName === 'companyDocument') && file.mimetype !== 'application/pdf') {
         return res.status(400).json({
           success: false,
-          message: 'Invalid file type for resume. Only PDF files are allowed'
+          message: `Invalid file type for ${fieldName}. Only PDF files are allowed`
         });
       }
       
@@ -252,15 +269,32 @@ const uploadMultipleFiles = async (req, res) => {
       if (fieldName === 'resume') folder = 'job-files/resumes';
       if (fieldName === 'photo') folder = 'job-files/photos';
       if (fieldName === 'companyLogo') folder = 'job-files/logos';
+      if (fieldName === 'companyDocument') folder = 'job-files/company-docs';
       
       const fileUrl = await uploadToS3(file, folder);
-      updates[`profile.${fieldName}`] = fileUrl;
+      
+      // For company documents, we push to the array; for others, we set directly
+      if (fieldName === 'companyDocument') {
+        if (!arrayUpdates['profile.companyDocument']) {
+          arrayUpdates['profile.companyDocument'] = [];
+        }
+        arrayUpdates['profile.companyDocument'].push(fileUrl);
+      } else {
+        updates[`profile.${fieldName}`] = fileUrl;
+      }
+    }
+    
+    // Combine regular updates and array updates
+    let finalUpdates = { ...updates };
+    if (Object.keys(arrayUpdates).length > 0) {
+      // Add array updates with $push
+      finalUpdates.$push = arrayUpdates;
     }
     
     // Update user profile with all file URLs
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { $set: updates },
+      finalUpdates,
       { new: true, runValidators: true }
     ).select('-password');
     
@@ -546,4 +580,167 @@ const updateCompanyLogo = async (req, res) => {
   }
 };
 
-export { uploadFile, updateProfileWithFile, uploadToS3, deleteFromS3, uploadMultipleFiles, updateProfilePicture, updateResume, updateCompanyLogo };
+// Upload company document (job hoster and recruiter only)
+const uploadCompanyDocument = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+    
+    // Validate file type
+    if (req.file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only PDF files are allowed for company documents'
+      });
+    }
+    
+    // Get user to check role
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Ensure user is a job hoster or recruiter
+    if (user.role !== 'jobHoster' && user.role !== 'recruiter') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only job hosters and recruiters can upload company documents'
+      });
+    }
+    
+    // Upload new company document
+    const fileUrl = await uploadToS3(req.file, 'job-files/company-docs');
+    
+    // Add the document URL to the user's companyDocument array
+    const updateData = { 
+      $push: { 'profile.companyDocument': fileUrl }
+    };
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Company document uploaded successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Upload company document error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Delete company document (job hoster and recruiter only)
+const deleteCompanyDocument = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { documentUrl } = req.body;
+    
+    if (!documentUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Document URL is required'
+      });
+    }
+    
+    // Get user to check role
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Ensure user is a job hoster or recruiter
+    if (user.role !== 'jobHoster' && user.role !== 'recruiter') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only job hosters and recruiters can delete company documents'
+      });
+    }
+    
+    // Check if the document URL exists in the user's companyDocument array
+    if (!user.profile || !user.profile.companyDocument || !user.profile.companyDocument.includes(documentUrl)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Document not found in user profile'
+      });
+    }
+    
+    // Delete file from S3
+    try {
+      await deleteFromS3(documentUrl);
+    } catch (error) {
+      console.error('Error deleting file from S3:', error);
+      // We continue with the database update even if S3 deletion fails
+    }
+    
+    // Remove the document URL from the user's companyDocument array
+    const updateData = { 
+      $pull: { 'profile.companyDocument': documentUrl }
+    };
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Company document deleted successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Delete company document error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+export { 
+  uploadFile, 
+  updateProfileWithFile, 
+  uploadToS3, 
+  deleteFromS3, 
+  uploadMultipleFiles, 
+  updateProfilePicture, 
+  updateResume, 
+  updateCompanyLogo,
+  uploadCompanyDocument, // Add the new export
+  deleteCompanyDocument  // Add the new export
+};

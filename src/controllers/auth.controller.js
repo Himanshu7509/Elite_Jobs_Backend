@@ -1,4 +1,10 @@
-import User from '../models/auth.model.js';
+import User, { 
+  GENDER_OPTIONS, 
+  NOTICE_PERIOD_OPTIONS, 
+  EXPERIENCE_OPTIONS, 
+  CATEGORY_OPTIONS, 
+  EDUCATION_OPTIONS 
+} from '../models/auth.model.js';
 import Job from '../models/job.model.js';
 import Application from '../models/application.model.js';
 import { deleteFromS3 } from '../controllers/file.controller.js';
@@ -38,6 +44,29 @@ const getOrCreateAdmin = async () => {
   }
   
   return adminUser;
+};
+
+// Get enum options for job seeker profile
+const getProfileEnumOptions = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: {
+        gender: GENDER_OPTIONS,
+        noticePeriod: NOTICE_PERIOD_OPTIONS,
+        experience: EXPERIENCE_OPTIONS,
+        category: CATEGORY_OPTIONS,
+        education: EDUCATION_OPTIONS
+      }
+    });
+  } catch (error) {
+    console.error('Get profile enum options error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
 };
 
 // Signup controller
@@ -486,4 +515,12 @@ const deleteProfile = async (req, res) => {
   }
 };
 
-export { signup, login, getProfile, updateProfile, deleteProfile, getOrCreateAdmin };
+export { 
+  signup, 
+  login, 
+  getProfile, 
+  updateProfile, 
+  deleteProfile, 
+  getOrCreateAdmin,
+  getProfileEnumOptions // Add the new export
+};

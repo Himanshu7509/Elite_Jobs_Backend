@@ -110,13 +110,13 @@ const getApplicationsByJobSeeker = async (req, res) => {
   }
 };
 
-// Get all jobs (Recruiters can see all jobs)
+// Get all jobs (Recruiters can see any job)
 const getAllJobs = async (req, res) => {
   try {
     const { page = 1, limit = 10, search, location, employmentType, experienceLevel } = req.query;
     
     // Build filter object
-    const filter = { isActive: true };
+    const filter = {};
     
     if (search) {
       filter.$or = [
@@ -140,7 +140,13 @@ const getAllJobs = async (req, res) => {
     
     // Get jobs with pagination
     const jobs = await Job.find(filter)
-      .populate('postedBy', 'name email profile')
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -173,7 +179,13 @@ const getJobById = async (req, res) => {
     const { id } = req.params;
     
     const job = await Job.findById(id)
-      .populate('postedBy', 'name email profile');
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
       
     if (!job) {
       return res.status(404).json({

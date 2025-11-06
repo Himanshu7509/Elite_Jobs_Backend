@@ -19,7 +19,8 @@ import {
   updateJobVerificationStatus,
   getJobsByVerificationStatus,
   migrateVerificationStatus,
-  getJobCountsByVerificationStatus // Import the new function
+  getJobCountsByVerificationStatus,
+  getJobEnumOptions // Import the new function
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -28,7 +29,8 @@ const jobRouter = express.Router();
 // Public routes
 jobRouter.get('/', getAllJobs);
 jobRouter.get('/categories', getJobCountsByCategory);
-jobRouter.get('/verification-counts', getJobCountsByVerificationStatus); // Add the new route
+jobRouter.get('/verification-counts', getJobCountsByVerificationStatus);
+jobRouter.get('/options', getJobEnumOptions); // Add the new route
 
 // Protected routes - Job Seekers
 jobRouter.post('/:id/apply', authMiddleware, authorizeRole('jobSeeker'), applyForJob);

@@ -1,7 +1,42 @@
-import Job from '../models/job.model.js';
+import Job, { 
+  JOB_TYPE_OPTIONS, 
+  INTERVIEW_TYPE_OPTIONS, 
+  WORK_TYPE_OPTIONS, 
+  EXPERIENCE_LEVEL_OPTIONS, 
+  NOTICE_PERIOD_OPTIONS, 
+  CATEGORY_OPTIONS, 
+  SHIFT_OPTIONS, 
+  VERIFICATION_STATUS_OPTIONS 
+} from '../models/job.model.js';
 import Application from '../models/application.model.js';
 import User from '../models/auth.model.js';
 import { deleteFromS3 } from '../controllers/file.controller.js';
+
+// Get enum options for job creation
+const getJobEnumOptions = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: {
+        jobType: JOB_TYPE_OPTIONS,
+        interviewType: INTERVIEW_TYPE_OPTIONS,
+        workType: WORK_TYPE_OPTIONS,
+        experienceLevel: EXPERIENCE_LEVEL_OPTIONS,
+        noticePeriod: NOTICE_PERIOD_OPTIONS,
+        category: CATEGORY_OPTIONS,
+        shift: SHIFT_OPTIONS,
+        verificationStatus: VERIFICATION_STATUS_OPTIONS
+      }
+    });
+  } catch (error) {
+    console.error('Get job enum options error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
 
 // Create a new job (Job Hoster, Recruiter, and Admin)
 const createJob = async (req, res) => {
@@ -194,7 +229,13 @@ const getAllJobs = async (req, res) => {
     
     // Get jobs with pagination
     const jobs = await Job.find(filter)
-      .populate('postedBy', 'name email profile')
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -227,7 +268,13 @@ const getJobById = async (req, res) => {
     const { id } = req.params;
     
     const job = await Job.findById(id)
-      .populate('postedBy', 'name email profile');
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
       
     if (!job) {
       return res.status(404).json({
@@ -311,10 +358,20 @@ const updateJob = async (req, res) => {
     
     await job.save();
     
+    // Populate the updated job with profile information
+    const populatedJob = await Job.findById(job._id)
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
+    
     res.status(200).json({
       success: true,
       message: 'Job updated successfully',
-      data: job
+      data: populatedJob
     });
   } catch (error) {
     console.error('Update job error:', error);
@@ -676,7 +733,13 @@ const getJobApplications = async (req, res) => {
     
     // Get applications for this job
     const applications = await Application.find({ jobId: id })  // Changed from jobId to id
-      .populate('applicantId', 'name email profile');
+      .populate({
+        path: 'applicantId',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
     
     res.status(200).json({
       success: true,
@@ -724,6 +787,13 @@ const getUserJobs = async (req, res) => {
       : { postedBy: req.user.userId };
     
     const jobs = await Job.find(filter)
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -833,7 +903,13 @@ const getJobApplicationById = async (req, res) => {
     
     // Get the specific application and populate applicant details
     const application = await Application.findById(applicationId)
-      .populate('applicantId', 'name email profile');
+      .populate({
+        path: 'applicantId',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
     
     if (!application) {
       return res.status(404).json({
@@ -842,20 +918,12 @@ const getJobApplicationById = async (req, res) => {
       });
     }
     
-    // Verify that this application is for the specified job
-    if (application.jobId.toString() !== jobId) {
-      return res.status(404).json({
-        success: false,
-        message: 'Application not found for this job'
-      });
-    }
-    
     res.status(200).json({
       success: true,
       data: application
     });
   } catch (error) {
-    console.error('Get job application error:', error);
+    console.error('Get job application by ID error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -864,7 +932,7 @@ const getJobApplicationById = async (req, res) => {
   }
 };
 
-// Get job application statistics for job hoster dashboard (Admins and Recruiters can see all)
+// Get job application statistics (Job Hoster, Recruiter, Admin, and EliteTeam)
 const getJobApplicationStats = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -900,7 +968,16 @@ const getJobApplicationStats = async (req, res) => {
     const monthlyApplications = await Application.find({
       jobId: { $in: jobIds },
       appliedAt: { $gte: oneMonthAgo }
-    }).populate('jobId', 'title');
+    }).populate({
+      path: 'jobId',
+      populate: {
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      }
+    });
     
     // Get applications for the last week
     const weeklyApplications = monthlyApplications.filter(app => app.appliedAt >= oneWeekAgo);
@@ -1134,7 +1211,13 @@ const updateJobVerificationStatus = async (req, res) => {
       id,
       { verificationStatus },
       { new: true, runValidators: true }
-    ).populate('postedBy', 'name email role profile');
+    ).populate({
+      path: 'postedBy',
+      select: 'name email profile',
+      populate: {
+        path: 'profile'
+      }
+    });
 
     if (!job) {
       return res.status(404).json({
@@ -1202,7 +1285,13 @@ const getJobsByVerificationStatus = async (req, res) => {
     
     // Get jobs with pagination
     const jobs = await Job.find(filter)
-      .populate('postedBy', 'name email role profile')
+      .populate({
+        path: 'postedBy',
+        select: 'name email role profile',
+        populate: {
+          path: 'profile'
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -1296,5 +1385,6 @@ export {
   updateJobVerificationStatus,
   getJobsByVerificationStatus,
   migrateVerificationStatus,
-  getJobCountsByVerificationStatus // Add the new export
+  getJobCountsByVerificationStatus,
+  getJobEnumOptions // Add the new export
 };

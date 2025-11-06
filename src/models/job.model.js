@@ -1,5 +1,15 @@
 import mongoose from 'mongoose';
 
+// Define constants for enum values
+const JOB_TYPE_OPTIONS = ['Full-time', 'Part-time'];
+const INTERVIEW_TYPE_OPTIONS = ['Online', 'On-site', 'Walk-in'];
+const WORK_TYPE_OPTIONS = ['Remote', 'On-site', 'Hybrid'];
+const EXPERIENCE_LEVEL_OPTIONS = ['Fresher', '0-1 year of experience', '1-2 year of experience', '2-4 year of experience', '5+ year of experience'];
+const NOTICE_PERIOD_OPTIONS = ['Immediate Joiner', 'Upto 1 week', 'Upto 1 month', 'Upto 2 month', 'Any'];
+const CATEGORY_OPTIONS = ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"];
+const SHIFT_OPTIONS = ['Day', 'Night'];
+const VERIFICATION_STATUS_OPTIONS = ['verified', 'not verified'];
+
 const jobSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -24,19 +34,19 @@ const jobSchema = new mongoose.Schema({
   },
   jobType: { // Replaced employmentType
     type: String,
-    enum: ['Full-time', 'Part-time'],
     default: 'Full-time',
     required: false
+    // No enum constraint - allows both predefined and custom values
   },
   interviewType: { // New field
     type: String,
-    enum: ['Online', 'On-site', 'Walk-in'],
     required: true
+    // No enum constraint - allows both predefined and custom values
   },
   workType: { // New field
     type: String,
-    enum: ['Remote', 'On-site', 'Hybrid'],
     required: true
+    // No enum constraint - allows both predefined and custom values
   },
   minEducation: { // New field
     type: String,
@@ -55,13 +65,13 @@ const jobSchema = new mongoose.Schema({
   skills: [String],
   experienceLevel: {
     type: String,
-    enum: ['Fresher', '0-1 year of experience', '1-2 year of experience', '2-4 year of experience', '5+ year of experience'],
     required: true
+    // No enum constraint - allows both predefined and custom values
   },
   noticePeriod: { // New field
     type: String,
-    enum: ['Immediate Joiner', 'Upto 1 week', 'Upto 1 month', 'Upto 2 month', 'Any'],
     required: true
+    // No enum constraint - allows both predefined and custom values
   },
   postedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -75,8 +85,8 @@ const jobSchema = new mongoose.Schema({
   applicationDeadline: Date,
   category: {
     type: String,
-    enum: ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"],
     required: true
+    // No enum constraint - allows both predefined and custom values
   },
   // New fields
   numberOfOpenings: {
@@ -89,8 +99,8 @@ const jobSchema = new mongoose.Schema({
   },
   shift: {
     type: String,
-    enum: ['Day', 'Night'],
     required: false
+    // No enum constraint - allows both predefined and custom values
   },
   walkInDate: {
     type: Date,
@@ -103,9 +113,21 @@ const jobSchema = new mongoose.Schema({
   // Verification status field
   verificationStatus: {
     type: String,
-    enum: ['verified', 'not verified'],
     default: 'not verified'
+    // No enum constraint - allows both predefined and custom values
   }
 }, { timestamps: true });
+
+// Export constants for use in controllers
+export { 
+  JOB_TYPE_OPTIONS, 
+  INTERVIEW_TYPE_OPTIONS, 
+  WORK_TYPE_OPTIONS, 
+  EXPERIENCE_LEVEL_OPTIONS, 
+  NOTICE_PERIOD_OPTIONS, 
+  CATEGORY_OPTIONS, 
+  SHIFT_OPTIONS, 
+  VERIFICATION_STATUS_OPTIONS 
+};
 
 export default mongoose.model('Job', jobSchema);

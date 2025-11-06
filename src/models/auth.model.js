@@ -1,6 +1,33 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
+// Define constants for enum values
+const GENDER_OPTIONS = ["male", "female", "other"];
+const NOTICE_PERIOD_OPTIONS = ['Immediate Joiner', 'Upto 1 week', 'Upto 1 month', 'Upto 2 month', 'Any'];
+const EXPERIENCE_OPTIONS = ['Fresher', '0-1 year of experience', '1-2 year of experience', '2-4 year of experience', '5+ year of experience', '10+ year of experience'];
+const CATEGORY_OPTIONS = ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"];
+const EDUCATION_OPTIONS = [
+  "High School (10th)",
+  "Higher Secondary (12th)",
+  "Diploma",
+  "Bachelor of Arts (BA)",
+  "Bachelor of Science (BSc)",
+  "Bachelor of Commerce (BCom)",
+  "Bachelor of Technology (BTech)",
+  "Bachelor of Engineering (BE)",
+  "Bachelor of Computer Applications (BCA)",
+  "Bachelor of Business Administration (BBA)",
+  "Master of Arts (MA)",
+  "Master of Science (MSc)",
+  "Master of Commerce (MCom)",
+  "Master of Technology (MTech)",
+  "Master of Engineering (ME)",
+  "Master of Computer Applications (MCA)",
+  "Master of Business Administration (MBA)",
+  "PhD (Doctorate)",
+  "Other"
+];
+
 const jobSeekerProfileSchema = new mongoose.Schema({
   age: Number,
   address: String,
@@ -22,50 +49,30 @@ const jobSeekerProfileSchema = new mongoose.Schema({
     description: String
   }],
   skills: [String], // New field for job seeker skills
-  photo: String, // URL to S3 uploaded photo
-  resume: String,  // URL to S3 uploaded resume
+  photo: String, 
+  resume: String, 
   gender: {
-    type: String,
-    enum: ["male", "female", "other"]
+    type: String
+    // No enum constraint - allows both predefined and custom values
   },
   noticePeriod: {
-    type: String,
-    enum: ['Immediate Joiner', 'Upto 1 week', 'Upto 1 month', 'Upto 2 month', 'Any']
+    type: String
+    // No enum constraint - allows both predefined and custom values
   },
   preferredLocation: String,
   designation: String,
   expInWork: {
-    type: String,
-    enum: ['Fresher', '0-1 year of experience', '1-2 year of experience', '2-4 year of experience', '5+ year of experience', '10+ year of experience']
+    type: String
+    // No enum constraint - allows both predefined and custom values
   },
   salaryExpectation: String,
   preferredCategory: {
-    type: String,
-    enum: ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"]
+    type: String
+    // No enum constraint - allows both predefined and custom values
   },
   highestEducation: {
-    type: String,
-    enum: [
-      "High School (10th)",
-      "Higher Secondary (12th)",
-      "Diploma",
-      "Bachelor of Arts (BA)",
-      "Bachelor of Science (BSc)",
-      "Bachelor of Commerce (BCom)",
-      "Bachelor of Technology (BTech)",
-      "Bachelor of Engineering (BE)",
-      "Bachelor of Computer Applications (BCA)",
-      "Bachelor of Business Administration (BBA)",
-      "Master of Arts (MA)",
-      "Master of Science (MSc)",
-      "Master of Commerce (MCom)",
-      "Master of Technology (MTech)",
-      "Master of Engineering (ME)",
-      "Master of Computer Applications (MCA)",
-      "Master of Business Administration (MBA)",
-      "PhD (Doctorate)",
-      "Other"
-    ]
+    type: String
+    // No enum constraint - allows both predefined and custom values
   }
 }, { _id: false });
 
@@ -77,6 +84,7 @@ const jobHosterProfileSchema = new mongoose.Schema({
   numberOfEmployees: Number, // New field
   companyPhone: String, // New field
   companyLogo: String, // URL to S3 uploaded company logo
+  companyDocument: [String], // Array of URLs to S3 uploaded company documents
   photo: String, // URL to S3 uploaded personal photo
   phone: String, // New field for phone number
   panCardNumber: String,
@@ -91,6 +99,7 @@ const recruiterProfileSchema = new mongoose.Schema({
   numberOfEmployees: Number,
   companyPhone: String,
   companyLogo: String, // URL to S3 uploaded company logo
+  companyDocument: [String], // Array of URLs to S3 uploaded company documents
   photo: String, // URL to S3 uploaded personal photo
   phone: String,
   panCardNumber: String,
@@ -140,6 +149,15 @@ userSchema.pre('save', async function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Export constants for use in controllers
+export { 
+  GENDER_OPTIONS, 
+  NOTICE_PERIOD_OPTIONS, 
+  EXPERIENCE_OPTIONS, 
+  CATEGORY_OPTIONS, 
+  EDUCATION_OPTIONS 
 };
 
 export default mongoose.model('User', userSchema);
