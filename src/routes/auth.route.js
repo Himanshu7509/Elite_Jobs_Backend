@@ -13,7 +13,8 @@ import {
   updateResume,
   updateCompanyLogo,
   uploadCompanyDocument,
-  deleteCompanyDocument
+  deleteCompanyDocument,
+  uploadMultipleFiles
 } from '../controllers/file.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import upload from '../config/multer.js';
@@ -36,5 +37,11 @@ authRouter.put('/profile/resume', authMiddleware, upload.single('resume'), updat
 authRouter.put('/profile/company-logo', authMiddleware, upload.single('companyLogo'), updateCompanyLogo);
 authRouter.post('/profile/company-document', authMiddleware, upload.single('companyDocument'), uploadCompanyDocument);
 authRouter.delete('/profile/company-document', authMiddleware, deleteCompanyDocument);
+authRouter.post('/upload-multiple', authMiddleware, upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'resume', maxCount: 1 },
+  { name: 'companyLogo', maxCount: 1 },
+  { name: 'companyDocument', maxCount: 5 }
+]), uploadMultipleFiles);
 
 export default authRouter;
