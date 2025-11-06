@@ -13,6 +13,7 @@ import {
   updateResume,
   updateCompanyLogo,
   uploadCompanyDocument,
+  updateCompanyDocument,
   deleteCompanyDocument,
   uploadMultipleFiles
 } from '../controllers/file.controller.js';
@@ -36,6 +37,7 @@ authRouter.put('/profile/photo', authMiddleware, upload.single('photo'), updateP
 authRouter.put('/profile/resume', authMiddleware, upload.single('resume'), updateResume);
 authRouter.put('/profile/company-logo', authMiddleware, upload.single('companyLogo'), updateCompanyLogo);
 authRouter.post('/profile/company-document', authMiddleware, upload.single('companyDocument'), uploadCompanyDocument);
+authRouter.put('/profile/company-document', authMiddleware, upload.single('companyDocument'), updateCompanyDocument);
 authRouter.delete('/profile/company-document', authMiddleware, deleteCompanyDocument);
 authRouter.post('/upload-multiple', authMiddleware, upload.fields([
   { name: 'photo', maxCount: 1 },

@@ -653,6 +653,114 @@ const uploadCompanyDocument = async (req, res) => {
   }
 };
 
+// Update company document (job hoster and recruiter only)
+const updateCompanyDocument = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { documentIndex } = req.body; // Index of the document to update
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+    
+    // Validate file type
+    if (req.file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only PDF files are allowed for company documents'
+      });
+    }
+    
+    // Get user to check role
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Ensure user is a job hoster or recruiter
+    if (user.role !== 'jobHoster' && user.role !== 'recruiter') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only job hosters and recruiters can update company documents'
+      });
+    }
+    
+    // Check if the user has company documents
+    if (!user.profile || !user.profile.companyDocument || user.profile.companyDocument.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No company documents found for this user'
+      });
+    }
+    
+    // Use index 0 if no documentIndex is provided
+    let index = 0;
+    if (documentIndex !== undefined) {
+      index = parseInt(documentIndex);
+    }
+    
+    // Validate document index
+    if (isNaN(index) || index < 0 || index >= user.profile.companyDocument.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid document index. Must be between 0 and ' + (user.profile.companyDocument.length - 1)
+      });
+    }
+    
+    // Get the old document URL
+    const oldDocumentUrl = user.profile.companyDocument[index];
+    
+    // Delete old company document from S3
+    if (oldDocumentUrl) {
+      try {
+        await deleteFromS3(oldDocumentUrl);
+      } catch (error) {
+        console.error('Error deleting old company document:', error);
+        // We continue with the update even if S3 deletion fails
+      }
+    }
+    
+    // Upload new company document
+    const fileUrl = await uploadToS3(req.file, 'job-files/company-docs');
+    
+    // Update the specific document URL in the user's companyDocument array
+    const updateData = {};
+    updateData[`profile.companyDocument.${index}`] = fileUrl;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Company document updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Update company document error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 // Delete company document (job hoster and recruiter only)
 const deleteCompanyDocument = async (req, res) => {
   try {
@@ -741,6 +849,7 @@ export {
   updateProfilePicture, 
   updateResume, 
   updateCompanyLogo,
-  uploadCompanyDocument, // Add the new export
-  deleteCompanyDocument  // Add the new export
+  uploadCompanyDocument,
+  updateCompanyDocument, // Add the new export
+  deleteCompanyDocument
 };
