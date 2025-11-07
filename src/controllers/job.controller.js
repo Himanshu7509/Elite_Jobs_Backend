@@ -12,6 +12,16 @@ import Application from '../models/application.model.js';
 import User from '../models/auth.model.js';
 import { deleteFromS3 } from '../controllers/file.controller.js';
 
+// Helper function to handle salary values as strings
+const handleSalaryValue = (value) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  
+  // Convert to string and trim
+  return String(value).trim();
+};
+
 // Get enum options for job creation
 const getJobEnumOptions = async (req, res) => {
   try {
@@ -38,7 +48,7 @@ const getJobEnumOptions = async (req, res) => {
   }
 };
 
-// Create a new job (Job Hoster, Recruiter, and Admin)
+// Create job (Job Hoster, Admin, EliteTeam)
 const createJob = async (req, res) => {
   try {
     const {
@@ -55,32 +65,24 @@ const createJob = async (req, res) => {
       skills,
       experienceLevel,
       noticePeriod,
+      company,
       applicationDeadline,
       category,
-      // New fields
       numberOfOpenings,
       yearOfPassing,
       shift,
       walkInDate,
       walkInTime
     } = req.body;
-
+    
     // Validate required fields
-    if (!title || !description || !location || !interviewType || !workType || !experienceLevel || !noticePeriod) {
+    if (!title || !description || !location || !interviewType || !workType || !experienceLevel || !noticePeriod || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: title, description, location, interviewType, workType, experienceLevel, noticePeriod'
+        message: 'Please provide all required fields: title, description, location, interviewType, workType, experienceLevel, noticePeriod, category'
       });
     }
-
-    // Additional validation for location array
-    if (location && Array.isArray(location) && location.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one location is required'
-      });
-    }
-
+    
     // Additional validation for walk-in interviews
     if (interviewType === 'Walk-in' && (!walkInDate || !walkInTime)) {
       return res.status(400).json({
@@ -88,78 +90,96 @@ const createJob = async (req, res) => {
         message: 'Walk-in date and time are required for walk-in interviews'
       });
     }
-
-    let companyInfo = {};
     
-    // For admins and eliteTeam, company info is provided in the request body
-    if (req.user.role === 'admin' || req.user.role === 'eliteTeam') {
-      // Validate company object
-      if (!req.body.company || !req.body.company.name) {
-        return res.status(400).json({
-          success: false,
-          message: 'Company name is required for admin/eliteTeam job creation'
-        });
+    // Handle salary values as strings
+    let processedSalary = {};
+    if (salary) {
+      if (salary.min !== undefined) {
+        processedSalary.min = handleSalaryValue(salary.min);
       }
       
-      companyInfo = {
-        name: req.body.company.name || '',
-        description: req.body.company.description || '',
-        website: req.body.company.website || '',
-        logo: req.body.company.logo || ''
-      };
-    } else {
-      // Get the job hoster's profile to populate company information
-      const jobHoster = await User.findById(req.user.userId);
-      
-      if (!jobHoster || (jobHoster.role !== 'jobHoster' && jobHoster.role !== 'recruiter')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Only job hosters, recruiters, admins, and eliteTeam can create jobs'
-        });
+      if (salary.max !== undefined) {
+        processedSalary.max = handleSalaryValue(salary.max);
       }
-
-      // Prepare company information from job hoster's profile
-      companyInfo = {
-        name: jobHoster.profile?.companyName || '',
-        description: jobHoster.profile?.companyDescription || '',
-        website: jobHoster.profile?.companyWebsite || '',
-        logo: jobHoster.profile?.companyLogo || ''
-      };
+      
+      if (salary.currency) {
+        processedSalary.currency = salary.currency;
+      } else {
+        processedSalary.currency = 'INR'; // Default currency
+      }
     }
-
-    // Create new job
-    const job = new Job({
+    
+    // Prepare job data
+    const jobData = {
       title,
       description,
-      company: companyInfo,
       location,
-      jobType,
       interviewType,
       workType,
-      minEducation,
-      salary,
-      requirements,
-      responsibilities,
-      skills,
       experienceLevel,
       noticePeriod,
-      applicationDeadline,
       category,
       postedBy: req.user.userId,
-      // New fields
+      applicationDeadline,
       numberOfOpenings,
       yearOfPassing,
-      shift,
-      walkInDate: interviewType === 'Walk-in' ? walkInDate : undefined,
-      walkInTime: interviewType === 'Walk-in' ? walkInTime : undefined
-    });
-
+      walkInDate,
+      walkInTime,
+      isActive: true
+    };
+    
+    // Add optional fields if provided
+    if (jobType) jobData.jobType = jobType;
+    if (minEducation) jobData.minEducation = minEducation;
+    if (requirements) jobData.requirements = requirements;
+    if (responsibilities) jobData.responsibilities = responsibilities;
+    if (skills) jobData.skills = skills;
+    if (company) jobData.company = company;
+    if (shift) jobData.shift = shift;
+    
+    // Add processed salary if provided
+    if (Object.keys(processedSalary).length > 0) {
+      jobData.salary = processedSalary;
+    }
+    
+    // For job hosters, populate company info from their profile if not provided
+    if (req.user.role === 'jobHoster' && !jobData.company) {
+      const jobHoster = await User.findById(req.user.userId);
+      if (jobHoster && jobHoster.profile) {
+        jobData.company = {
+          name: jobHoster.profile.companyName || '',
+          description: jobHoster.profile.companyDescription || '',
+          website: jobHoster.profile.companyWebsite || '',
+          logo: jobHoster.profile.companyLogo || ''
+        };
+      }
+    }
+    
+    // For admin and eliteTeam, company info must be provided in request
+    if ((req.user.role === 'admin' || req.user.role === 'eliteTeam') && !company) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company information is required for admin and eliteTeam users'
+      });
+    }
+    
+    const job = new Job(jobData);
     await job.save();
-
+    
+    // Populate the job with profile information
+    const populatedJob = await Job.findById(job._id)
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
+    
     res.status(201).json({
       success: true,
       message: 'Job created successfully',
-      data: job
+      data: populatedJob
     });
   } catch (error) {
     console.error('Create job error:', error);
@@ -328,6 +348,21 @@ const updateJob = async (req, res) => {
         success: false,
         message: 'Both walk-in date and time are required for walk-in interviews'
       });
+    }
+    
+    // Handle salary values as strings
+    if (updateData.salary) {
+      if (updateData.salary.min !== undefined) {
+        updateData.salary.min = handleSalaryValue(updateData.salary.min);
+      }
+      
+      if (updateData.salary.max !== undefined) {
+        updateData.salary.max = handleSalaryValue(updateData.salary.max);
+      }
+      
+      if (!updateData.salary.currency) {
+        updateData.salary.currency = 'INR'; // Default currency
+      }
     }
     
     // If company information is being updated, ensure it includes logo from profile

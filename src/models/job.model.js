@@ -53,8 +53,8 @@ const jobSchema = new mongoose.Schema({
     required: false
   },
   salary: {
-    min: Number,
-    max: Number,
+    min: String, // Changed from Number to String
+    max: String, // Changed from Number to String
     currency: {
       type: String,
       default: 'INR'
