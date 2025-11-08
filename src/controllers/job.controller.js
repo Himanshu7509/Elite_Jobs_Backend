@@ -75,15 +75,15 @@ const createJob = async (req, res) => {
       walkInTime
     } = req.body;
     
-    // Validate required fields
-    if (!title || !description || !location || !interviewType || !workType || !experienceLevel || !noticePeriod || !category) {
+    // Validate required fields (only the ones that are still required)
+    if (!title || !description || !location || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: title, description, location, interviewType, workType, experienceLevel, noticePeriod, category'
+        message: 'Please provide all required fields: title, description, location, category'
       });
     }
     
-    // Additional validation for walk-in interviews
+    // Additional validation for walk-in interviews (only if interviewType is provided)
     if (interviewType === 'Walk-in' && (!walkInDate || !walkInTime)) {
       return res.status(400).json({
         success: false,
@@ -114,28 +114,28 @@ const createJob = async (req, res) => {
       title,
       description,
       location,
-      interviewType,
-      workType,
-      experienceLevel,
-      noticePeriod,
       category,
       postedBy: req.user.userId,
-      applicationDeadline,
-      numberOfOpenings,
-      yearOfPassing,
-      walkInDate,
-      walkInTime,
       isActive: true
     };
     
     // Add optional fields if provided
     if (jobType) jobData.jobType = jobType;
+    if (interviewType) jobData.interviewType = interviewType;
+    if (workType) jobData.workType = workType;
     if (minEducation) jobData.minEducation = minEducation;
     if (requirements) jobData.requirements = requirements;
     if (responsibilities) jobData.responsibilities = responsibilities;
     if (skills) jobData.skills = skills;
+    if (experienceLevel) jobData.experienceLevel = experienceLevel;
+    if (noticePeriod) jobData.noticePeriod = noticePeriod;
     if (company) jobData.company = company;
+    if (applicationDeadline) jobData.applicationDeadline = applicationDeadline;
+    if (numberOfOpenings) jobData.numberOfOpenings = numberOfOpenings;
+    if (yearOfPassing) jobData.yearOfPassing = yearOfPassing;
     if (shift) jobData.shift = shift;
+    if (walkInDate) jobData.walkInDate = walkInDate;
+    if (walkInTime) jobData.walkInTime = walkInTime;
     
     // Add processed salary if provided
     if (Object.keys(processedSalary).length > 0) {
@@ -340,7 +340,7 @@ const updateJob = async (req, res) => {
       });
     }
     
-    // Additional validation for walk-in interviews
+    // Additional validation for walk-in interviews (only if interviewType is being updated)
     if (updateData.interviewType === 'Walk-in' && 
         (updateData.walkInDate || updateData.walkInTime) &&
         (!updateData.walkInDate || !updateData.walkInTime)) {
@@ -375,21 +375,32 @@ const updateJob = async (req, res) => {
     
     // Handle conditional fields for walk-in interviews
     if (updateData.interviewType === 'Walk-in') {
-      if (updateData.walkInDate) job.walkInDate = updateData.walkInDate;
-      if (updateData.walkInTime) job.walkInTime = updateData.walkInTime;
+      // walkInDate and walkInTime are required only if interviewType is Walk-in
     } else {
       // Clear walk-in fields if interview type is changed from walk-in
-      job.walkInDate = undefined;
-      job.walkInTime = undefined;
+      if (updateData.walkInDate !== undefined) {
+        updateData.walkInDate = undefined;
+      }
+      if (updateData.walkInTime !== undefined) {
+        updateData.walkInTime = undefined;
+      }
     }
     
-    // Update job with other fields
+    // Update job with provided fields
     Object.keys(updateData).forEach(key => {
-      // Skip walk-in fields as they're handled separately
+      // Skip walk-in fields handling as they're handled above
       if (key !== 'walkInDate' && key !== 'walkInTime') {
         job[key] = updateData[key];
       }
     });
+    
+    // Handle walk-in fields separately
+    if (updateData.walkInDate !== undefined) {
+      job.walkInDate = updateData.walkInDate;
+    }
+    if (updateData.walkInTime !== undefined) {
+      job.walkInTime = updateData.walkInTime;
+    }
     
     await job.save();
     

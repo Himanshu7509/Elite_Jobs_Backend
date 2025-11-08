@@ -40,12 +40,12 @@ const jobSchema = new mongoose.Schema({
   },
   interviewType: { // New field
     type: String,
-    required: true
+    required: false // Changed from true to false
     // No enum constraint - allows both predefined and custom values
   },
   workType: { // New field
     type: String,
-    required: true
+    required: false // Changed from true to false
     // No enum constraint - allows both predefined and custom values
   },
   minEducation: { // New field
@@ -65,12 +65,12 @@ const jobSchema = new mongoose.Schema({
   skills: [String],
   experienceLevel: {
     type: String,
-    required: true
+    required: false // Changed from true to false
     // No enum constraint - allows both predefined and custom values
   },
   noticePeriod: { // New field
     type: String,
-    required: true
+    required: false // Changed from true to false
     // No enum constraint - allows both predefined and custom values
   },
   postedBy: {
@@ -82,7 +82,10 @@ const jobSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  applicationDeadline: Date,
+  applicationDeadline: {
+    type: Date,
+    required: false // Changed from no required property to required: false
+  },
   category: {
     type: String,
     required: true
