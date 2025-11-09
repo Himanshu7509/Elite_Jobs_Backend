@@ -173,8 +173,8 @@ const updateProfileWithFile = async (req, res) => {
       });
     }
     
-    // If this is a company logo update for a job hoster or recruiter, also update all their jobs
-    if (determinedFileType === 'companyLogo' && (user.role === 'jobHoster' || user.role === 'recruiter')) {
+    // If this is a company logo update for job hosters, recruiters, admins, or eliteTeam, also update all their jobs
+    if (determinedFileType === 'companyLogo' && (user.role === 'jobHoster' || user.role === 'recruiter' || user.role === 'admin' || user.role === 'eliteTeam')) {
       try {
         await Job.updateMany(
           { postedBy: userId },
@@ -305,8 +305,8 @@ const uploadMultipleFiles = async (req, res) => {
       });
     }
     
-    // If company logo was updated for a job hoster or recruiter, also update all their jobs
-    if (updates['profile.companyLogo'] && (user.role === 'jobHoster' || user.role === 'recruiter')) {
+    // If company logo was updated for job hosters, recruiters, admins, or eliteTeam, also update all their jobs
+    if (updates['profile.companyLogo'] && (user.role === 'jobHoster' || user.role === 'recruiter' || user.role === 'admin' || user.role === 'eliteTeam')) {
       try {
         await Job.updateMany(
           { postedBy: userId },
@@ -551,8 +551,8 @@ const updateCompanyLogo = async (req, res) => {
       });
     }
     
-    // Update all jobs posted by this user with the new company logo (for job hosters and recruiters)
-    if (user.role === 'jobHoster' || user.role === 'recruiter') {
+    // Update all jobs posted by this user with the new company logo (for job hosters, recruiters, admins, and eliteTeam)
+    if (user.role === 'jobHoster' || user.role === 'recruiter' || user.role === 'admin' || user.role === 'eliteTeam') {
       try {
         await Job.updateMany(
           { postedBy: userId },

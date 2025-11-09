@@ -155,8 +155,21 @@ const createJob = async (req, res) => {
       }
     }
     
-    // For admin and eliteTeam, company info must be provided in request
-    if ((req.user.role === 'admin' || req.user.role === 'eliteTeam') && !company) {
+    // For admin and eliteTeam, populate company info from their profile if not provided
+    if ((req.user.role === 'admin' || req.user.role === 'eliteTeam') && !jobData.company) {
+      const adminOrEliteTeam = await User.findById(req.user.userId);
+      if (adminOrEliteTeam && adminOrEliteTeam.profile) {
+        jobData.company = {
+          name: adminOrEliteTeam.profile.companyName || '',
+          description: adminOrEliteTeam.profile.companyDescription || '',
+          website: adminOrEliteTeam.profile.companyWebsite || '',
+          logo: adminOrEliteTeam.profile.companyLogo || ''
+        };
+      }
+    }
+    
+    // If company info is still not provided for admin and eliteTeam, return error
+    if ((req.user.role === 'admin' || req.user.role === 'eliteTeam') && !jobData.company) {
       return res.status(400).json({
         success: false,
         message: 'Company information is required for admin and eliteTeam users'
