@@ -12,6 +12,7 @@ import {
   updateProfilePicture,
   updateResume,
   updateCompanyLogo,
+  uploadJobCompanyLogo,
   uploadCompanyDocument,
   updateCompanyDocument,
   deleteCompanyDocument,
@@ -45,5 +46,6 @@ authRouter.post('/upload-multiple', authMiddleware, upload.fields([
   { name: 'companyLogo', maxCount: 1 },
   { name: 'companyDocument', maxCount: 5 }
 ]), uploadMultipleFiles);
+authRouter.put('/job/:jobId/company-logo', authMiddleware, upload.single('companyLogo'), uploadJobCompanyLogo);
 
 export default authRouter;

@@ -173,8 +173,9 @@ const updateProfileWithFile = async (req, res) => {
       });
     }
     
-    // If this is a company logo update for job hosters, recruiters, admins, or eliteTeam, also update all their jobs
-    if (determinedFileType === 'companyLogo' && (user.role === 'jobHoster' || user.role === 'recruiter' || user.role === 'admin' || user.role === 'eliteTeam')) {
+    // If this is a company logo update for job hosters or recruiters, also update all their jobs
+    // Admins and eliteTeam users should use the job-specific logo upload endpoint
+    if (determinedFileType === 'companyLogo' && (user.role === 'jobHoster' || user.role === 'recruiter')) {
       try {
         await Job.updateMany(
           { postedBy: userId },
@@ -305,8 +306,9 @@ const uploadMultipleFiles = async (req, res) => {
       });
     }
     
-    // If company logo was updated for job hosters, recruiters, admins, or eliteTeam, also update all their jobs
-    if (updates['profile.companyLogo'] && (user.role === 'jobHoster' || user.role === 'recruiter' || user.role === 'admin' || user.role === 'eliteTeam')) {
+    // If company logo was updated for job hosters or recruiters, also update all their jobs
+    // Admins and eliteTeam users should use the job-specific logo upload endpoint
+    if (updates['profile.companyLogo'] && (user.role === 'jobHoster' || user.role === 'recruiter')) {
       try {
         await Job.updateMany(
           { postedBy: userId },
@@ -551,8 +553,9 @@ const updateCompanyLogo = async (req, res) => {
       });
     }
     
-    // Update all jobs posted by this user with the new company logo (for job hosters, recruiters, admins, and eliteTeam)
-    if (user.role === 'jobHoster' || user.role === 'recruiter' || user.role === 'admin' || user.role === 'eliteTeam') {
+    // Update all jobs posted by this user with the new company logo (ONLY for jobHosters and recruiters)
+    // Admins and eliteTeam users should use the job-specific logo upload endpoint
+    if (user.role === 'jobHoster' || user.role === 'recruiter') {
       try {
         await Job.updateMany(
           { postedBy: userId },
@@ -572,6 +575,97 @@ const updateCompanyLogo = async (req, res) => {
     });
   } catch (error) {
     console.error('Update company logo error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Upload company logo for a specific job (admin and eliteTeam only)
+const uploadJobCompanyLogo = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { jobId } = req.params;
+    
+    // Validate file presence
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+    
+    // Validate file type
+    if (!req.file.mimetype.startsWith('image/')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only image files are allowed for company logo'
+      });
+    }
+    
+    // Get user to check role
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Ensure user is admin or eliteTeam
+    if (user.role !== 'admin' && user.role !== 'eliteTeam') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins and eliteTeam users can upload job-specific company logos'
+      });
+    }
+    
+    // Find the job and check ownership
+    const job = await Job.findOne({ _id: jobId, postedBy: userId });
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or you do not have permission to update this job'
+      });
+    }
+    
+    // Delete old company logo if exists
+    if (job.company && job.company.logo) {
+      try {
+        await deleteFromS3(job.company.logo);
+      } catch (error) {
+        console.error('Error deleting old company logo:', error);
+      }
+    }
+    
+    // Upload new company logo
+    const fileUrl = await uploadToS3(req.file, 'job-files/logos');
+    
+    // Update job with new company logo
+    job.company = job.company || {};
+    job.company.logo = fileUrl;
+    
+    await job.save();
+    
+    // Populate the updated job with profile information
+    const populatedJob = await Job.findById(job._id)
+      .populate({
+        path: 'postedBy',
+        select: 'name email profile',
+        populate: {
+          path: 'profile'
+        }
+      });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Job company logo updated successfully',
+      data: populatedJob
+    });
+  } catch (error) {
+    console.error('Upload job company logo error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -849,7 +943,8 @@ export {
   updateProfilePicture, 
   updateResume, 
   updateCompanyLogo,
+  uploadJobCompanyLogo,
   uploadCompanyDocument,
-  updateCompanyDocument, // Add the new export
+  updateCompanyDocument,
   deleteCompanyDocument
 };
