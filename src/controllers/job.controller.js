@@ -72,7 +72,8 @@ const createJob = async (req, res) => {
       yearOfPassing,
       shift,
       walkInDate,
-      walkInTime
+      walkInTime,
+      directLink // Add directLink field
     } = req.body;
     
     // Validate required fields (only the ones that are still required)
@@ -136,6 +137,7 @@ const createJob = async (req, res) => {
     if (shift) jobData.shift = shift;
     if (walkInDate) jobData.walkInDate = walkInDate;
     if (walkInTime) jobData.walkInTime = walkInTime;
+    if (directLink) jobData.directLink = directLink; // Add directLink field
     
     // Add processed salary if provided
     if (Object.keys(processedSalary).length > 0) {
@@ -891,20 +893,19 @@ const getJobCountsByCategory = async (req, res) => {
     // Get all possible categories from the schema
     const allCategories = ["IT & Networking", "Sales & Marketing", "Accounting", "Data Science", "Digital Marketing", "Human Resource", "Customer Service", "Project Manager", "Other"];
     
-    // Create a map with all categories and their counts (0 if not found)
+    // Create a map with all predefined categories and their counts (0 if not found)
     const categoryMap = {};
     allCategories.forEach(category => {
       categoryMap[category] = 0;
     });
     
-    // Update counts for categories that have jobs
+    // Update counts for all categories from aggregation results
     categoryCounts.forEach(item => {
-      if (allCategories.includes(item.category)) {
-        categoryMap[item.category] = item.count;
-      }
+      // Add the category to the map with its count
+      categoryMap[item.category] = item.count;
     });
     
-    // Convert to array format
+    // Convert to array format, ensuring all categories are included
     const result = Object.keys(categoryMap).map(category => ({
       category,
       count: categoryMap[category]

@@ -118,6 +118,11 @@ const jobSchema = new mongoose.Schema({
     type: String,
     default: 'not verified'
     // No enum constraint - allows both predefined and custom values
+  },
+  // Direct link field
+  directLink: {
+    type: String,
+    required: false
   }
 }, { timestamps: true });
 
