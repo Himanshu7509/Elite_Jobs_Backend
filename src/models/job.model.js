@@ -97,7 +97,7 @@ const jobSchema = new mongoose.Schema({
     required: false
   },
   yearOfPassing: {
-    type: Number,
+    type: String,
     required: false
   },
   shift: {
