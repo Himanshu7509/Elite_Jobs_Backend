@@ -53,26 +53,25 @@ const jobSeekerProfileSchema = new mongoose.Schema({
   resume: String, 
   gender: {
     type: String
-    // No enum constraint - allows both predefined and custom values
+   
   },
   noticePeriod: {
     type: String
-    // No enum constraint - allows both predefined and custom values
+   
   },
   preferredLocation: String,
   designation: String,
   expInWork: {
     type: String
-    // No enum constraint - allows both predefined and custom values
+   
   },
   salaryExpectation: String,
   preferredCategory: {
     type: String
-    // No enum constraint - allows both predefined and custom values
+   
   },
   highestEducation: {
     type: String
-    // No enum constraint - allows both predefined and custom values
   }
 }, { _id: false });
 
@@ -127,7 +126,10 @@ const userSchema = new mongoose.Schema({
   profile: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
-  }
+  },
+  // Fields for forgot password functionality
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, { timestamps: true });
 
 userSchema.index({ email: 1, role: 1 }, { unique: true });

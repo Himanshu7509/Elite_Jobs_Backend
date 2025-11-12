@@ -5,7 +5,10 @@ import {
   getProfile, 
   updateProfile, 
   deleteProfile,
-  getProfileEnumOptions
+  getProfileEnumOptions,
+  forgotPassword,
+  verifyOTP,
+  resetPassword
 } from '../controllers/auth.controller.js';
 import { 
   updateProfileWithFile,
@@ -26,6 +29,9 @@ const authRouter = express.Router();
 // Public routes
 authRouter.post('/signup', signup);
 authRouter.post('/login', login);
+authRouter.post('/forgot-password', forgotPassword);
+authRouter.post('/verify-otp', verifyOTP);
+authRouter.post('/reset-password', resetPassword);
 authRouter.get('/profile-options', getProfileEnumOptions);
 
 // Protected routes
