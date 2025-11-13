@@ -350,6 +350,158 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// Resend OTP
+const resendOTP = async (req, res) => {
+  try {
+    const { email, role } = req.body;
+
+    // Validate required fields
+    if (!email || !role) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and role'
+      });
+    }
+
+    // Validate role - only allow jobSeeker, jobHoster, and recruiter
+    if (!['jobSeeker', 'jobHoster', 'recruiter'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role must be either jobSeeker, jobHoster, or recruiter'
+      });
+    }
+
+    // Find user by email and role
+    const user = await User.findOne({ email, role });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found with this email and role'
+      });
+    }
+
+    // Check if user has a recent OTP that hasn't expired yet (within last 5 minutes)
+    if (user.resetPasswordToken && user.resetPasswordExpires) {
+      const timeSinceLastOTP = Date.now() - (user.resetPasswordExpires - 15 * 60 * 1000);
+      // If less than 5 minutes since last OTP, don't allow resend
+      if (timeSinceLastOTP < 5 * 60 * 1000) {
+        const minutesLeft = Math.ceil((5 * 60 * 1000 - timeSinceLastOTP) / (60 * 1000));
+        return res.status(400).json({
+          success: false,
+          message: `Please wait ${minutesLeft} minute(s) before requesting a new OTP`
+        });
+      }
+    }
+
+    // Generate a new random 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set OTP expiration time (15 minutes from now)
+    const otpExpires = Date.now() + 15 * 60 * 1000;
+
+    // Save OTP and expiration to user document
+    user.resetPasswordToken = otp;
+    user.resetPasswordExpires = otpExpires;
+    await user.save();
+
+    // Send OTP via email using Resend with enhanced template
+    try {
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'noreply@mail.eliteassociate.in',
+        to: email,
+        subject: 'Password Reset OTP - Elite Jobs (Resent)',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
+              <tr>
+                <td align="center" style="padding: 20px 0;">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                      <td style="padding: 30px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
+                        <h1 style="color: white; margin: 0; font-size: 24px; text-align: center;">Elite Jobs</h1>
+                        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; text-align: center; font-size: 16px;">Job Portal Platform</p>
+                      </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                      <td style="padding: 40px;">
+                        <h2 style="color: #333; margin: 0 0 20px 0; font-size: 20px;">Hello ${user.name},</h2>
+                        
+                        <div style="color: #555; line-height: 1.6; font-size: 16px;">
+                          <p style="margin: 0 0 15px 0;">You have requested to resend the OTP for resetting your password for your Elite Jobs account.</p>
+                          <p style="margin: 0 0 15px 0;">Please use the following One-Time Password (OTP) to proceed with resetting your password:</p>
+                          
+                          <div style="text-align: center; margin: 30px 0;">
+                            <div style="display: inline-block; padding: 15px 25px; background-color: #f8f9fa; border: 2px dashed #667eea; border-radius: 8px;">
+                              <h3 style="color: #667eea; margin: 0; font-size: 24px; letter-spacing: 3px;">${otp}</h3>
+                            </div>
+                          </div>
+                          
+                          <p style="margin: 0 0 15px 0;">This OTP will expire in <strong>15 minutes</strong>. If you did not request this password reset, please ignore this email or contact our support team.</p>
+                          
+                          <div style="margin: 30px 0; padding: 20px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                            <p style="margin: 0; color: #856404; font-weight: bold;">Security Notice:</p>
+                            <p style="margin: 5px 0 0 0; color: #856404;">Never share this OTP with anyone. Elite Jobs support will never ask for your OTP.</p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 8px 8px;">
+                        <div style="text-align: center; color: #666; font-size: 14px;">
+                          <p style="margin: 0 0 10px 0;">
+                            <strong>Need Help?</strong> Contact our support team at info@eliteindiajobs.com
+                          </p>
+                          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                          <p style="margin: 0;">
+                            © ${new Date().getFullYear()} Elite Jobs. All rights reserved.
+                          </p>
+                          <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                            This email was sent to ${email} regarding your Elite Jobs account.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'OTP resent to your email address'
+      });
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to resend OTP email. Please try again later.'
+      });
+    }
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 // Signup controller
 const signup = async (req, res) => {
   try {
@@ -807,5 +959,6 @@ export {
   getProfileEnumOptions,
   forgotPassword,
   verifyOTP,
-  resetPassword
+  resetPassword,
+  resendOTP
 };

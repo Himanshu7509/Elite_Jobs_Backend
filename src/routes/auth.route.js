@@ -8,7 +8,8 @@ import {
   getProfileEnumOptions,
   forgotPassword,
   verifyOTP,
-  resetPassword
+  resetPassword,
+  resendOTP
 } from '../controllers/auth.controller.js';
 import { 
   updateProfileWithFile,
@@ -32,6 +33,7 @@ authRouter.post('/login', login);
 authRouter.post('/forgot-password', forgotPassword);
 authRouter.post('/verify-otp', verifyOTP);
 authRouter.post('/reset-password', resetPassword);
+authRouter.post('/resend-otp', resendOTP);
 authRouter.get('/profile-options', getProfileEnumOptions);
 
 // Protected routes
