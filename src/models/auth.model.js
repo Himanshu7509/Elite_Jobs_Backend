@@ -129,12 +129,20 @@ const userSchema = new mongoose.Schema({
   },
   // Fields for forgot password functionality
   resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetPasswordExpires: Date,
+  // Fields for Google authentication
+  google: {
+    id: String,
+    token: String
+  }
 }, { timestamps: true });
 
 userSchema.index({ email: 1, role: 1 }, { unique: true });
 
 userSchema.pre('save', async function(next) {
+  // Skip password hashing for Google users
+  if (this.google && this.google.id) return next();
+  
   if (this.role === 'admin' || this.role === 'eliteTeam') return next();
   
   if (!this.isModified('password')) return next();
@@ -150,6 +158,8 @@ userSchema.pre('save', async function(next) {
 
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
+  // Google users don't have passwords
+  if (this.google && this.google.id) return true;
   return bcrypt.compare(candidatePassword, this.password);
 };
 

@@ -9,7 +9,9 @@ import {
   forgotPassword,
   verifyOTP,
   resetPassword,
-  resendOTP
+  resendOTP,
+  googleSignup,
+  googleLogin
 } from '../controllers/auth.controller.js';
 import { 
   updateProfileWithFile,
@@ -34,6 +36,8 @@ authRouter.post('/forgot-password', forgotPassword);
 authRouter.post('/verify-otp', verifyOTP);
 authRouter.post('/reset-password', resetPassword);
 authRouter.post('/resend-otp', resendOTP);
+authRouter.post('/google-signup', googleSignup);
+authRouter.post('/google-login', googleLogin);
 authRouter.get('/profile-options', getProfileEnumOptions);
 
 // Protected routes
