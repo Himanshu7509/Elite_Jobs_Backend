@@ -71,10 +71,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         return res.redirect(`${frontendUrl}/google-role-selection?googleId=${req.user.googleProfile.id}&email=${req.user.googleProfile.emails[0].value}&name=${req.user.googleProfile.displayName}`);
       }
       
-      // For existing users, redirect to dashboard with token
+      // For existing users, redirect to Google callback handler with token
       const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      res.redirect(`${frontendUrl}/dashboard?token=${token}`);
+      res.redirect(`${frontendUrl}/google-callback?token=${token}`);
     }
   );
 } else {
