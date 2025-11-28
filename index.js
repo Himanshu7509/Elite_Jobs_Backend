@@ -62,19 +62,60 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 
   app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req, res, next) => {
+      // Add error handling middleware to catch any errors during authentication
+      passport.authenticate('google', (err, user, info) => {
+        if (err) {
+          console.error('Google OAuth Error:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Google authentication failed',
+            error: err.message
+          });
+        }
+        if (!user) {
+          console.error('Google OAuth Failed:', info);
+          return res.status(401).json({
+            success: false,
+            message: 'Google authentication failed',
+            error: info ? info.message : 'Unknown error'
+          });
+        }
+        // If authentication successful, log the user in
+        req.logIn(user, (loginErr) => {
+          if (loginErr) {
+            console.error('Login Error:', loginErr);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to login user',
+              error: loginErr.message
+            });
+          }
+          next();
+        });
+      })(req, res, next);
+    },
     (req, res) => {
-      // If we have a new user from Google (not yet in our system)
-      if (req.user.googleProfile) {
-        // Redirect to a frontend page where they can select their role
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        return res.redirect(`${frontendUrl}/google-role-selection?googleId=${req.user.googleProfile.id}&email=${req.user.googleProfile.emails[0].value}&name=${req.user.googleProfile.displayName}`);
+      try {
+        // If we have a new user from Google (not yet in our system)
+        if (req.user.googleProfile) {
+          // Redirect to a frontend page where they can select their role
+          const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
+          return res.redirect(`${frontendUrl}/google-role-selection?googleId=${req.user.googleProfile.id}&email=${req.user.googleProfile.emails[0].value}&name=${req.user.googleProfile.displayName}`);
+        }
+        
+        // For existing users, redirect to Google callback handler with token
+        const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
+        res.redirect(`${frontendUrl}/google-callback?token=${token}`);
+      } catch (error) {
+        console.error('Google OAuth Callback Error:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Something went wrong during Google authentication',
+          error: error.message
+        });
       }
-      
-      // For existing users, redirect to Google callback handler with token
-      const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      res.redirect(`${frontendUrl}/google-callback?token=${token}`);
     }
   );
 } else {

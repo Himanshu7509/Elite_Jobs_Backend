@@ -13,10 +13,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
   }, async (accessToken, refreshToken, profile, done) => {
     try {
+      console.log('Google OAuth Profile:', profile);
+      
       // Check if user already exists with this Google ID
       let user = await User.findOne({ 'google.id': profile.id });
       
       if (user) {
+        console.log('Existing user found with Google ID:', profile.id);
         return done(null, user);
       }
       
@@ -24,6 +27,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       user = await User.findOne({ email: profile.emails[0].value });
       
       if (user) {
+        console.log('Existing user found with email:', profile.emails[0].value);
         // If user exists with same email but no Google ID, add Google ID to existing account
         user.google = {
           id: profile.id,
@@ -35,11 +39,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       
       // If user doesn't exist, return null to indicate new user needs to be created
       // We'll handle user creation in the route controller
+      console.log('New user detected, redirecting to role selection');
       return done(null, { 
         googleProfile: profile,
         accessToken: accessToken
       });
     } catch (error) {
+      console.error('Google OAuth Strategy Error:', error);
       return done(error, null);
     }
   }));
