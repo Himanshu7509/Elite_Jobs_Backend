@@ -53,57 +53,143 @@ const jobSeekerProfileSchema = new mongoose.Schema({
   resume: String, 
   gender: {
     type: String,
-    enum: GENDER_OPTIONS
+    enum: GENDER_OPTIONS,
+    default: null
   },
   noticePeriod: {
     type: String,
-    enum: NOTICE_PERIOD_OPTIONS
+    enum: NOTICE_PERIOD_OPTIONS,
+    default: null
   },
-  preferredLocation: String,
-  designation: String,
+  preferredLocation: {
+    type: String,
+    default: ''
+  },
+  designation: {
+    type: String,
+    default: ''
+  },
   expInWork: {
     type: String,
-    enum: EXPERIENCE_OPTIONS
+    enum: EXPERIENCE_OPTIONS,
+    default: null
   },
-  salaryExpectation: String,
+  salaryExpectation: {
+    type: String,
+    default: ''
+  },
   preferredCategory: {
     type: String,
-    enum: CATEGORY_OPTIONS
+    enum: CATEGORY_OPTIONS,
+    default: null
   },
   highestEducation: {
     type: String,
-    enum: EDUCATION_OPTIONS
+    enum: EDUCATION_OPTIONS,
+    default: null
   }
 }, { _id: false });
 
 const jobHosterProfileSchema = new mongoose.Schema({
-  companyName: String,
-  companyDescription: String,
-  companyWebsite: String,
-  companyEmail: String, // New field
-  numberOfEmployees: Number, // New field
-  companyPhone: String, // New field
-  companyLogo: String, // URL to S3 uploaded company logo
-  companyDocument: [String], // Array of URLs to S3 uploaded company documents
-  photo: String, // URL to S3 uploaded personal photo
-  phone: String, // New field for phone number
-  panCardNumber: String,
-  gstNumber: String
+  companyName: {
+    type: String,
+    default: ''
+  },
+  companyDescription: {
+    type: String,
+    default: ''
+  },
+  companyWebsite: {
+    type: String,
+    default: ''
+  },
+  companyEmail: {
+    type: String,
+    default: ''
+  }, // New field
+  numberOfEmployees: {
+    type: Number,
+    default: null
+  }, // New field
+  companyPhone: {
+    type: String,
+    default: ''
+  }, // New field
+  companyLogo: {
+    type: String,
+    default: ''
+  }, // URL to S3 uploaded company logo
+  companyDocument: {
+    type: [String],
+    default: []
+  }, // Array of URLs to S3 uploaded company documents
+  photo: {
+    type: String,
+    default: ''
+  }, // URL to S3 uploaded personal photo
+  phone: {
+    type: String,
+    default: ''
+  }, // New field for phone number
+  panCardNumber: {
+    type: String,
+    default: ''
+  },
+  gstNumber: {
+    type: String,
+    default: ''
+  }
 }, { _id: false });
 
 const recruiterProfileSchema = new mongoose.Schema({
-  companyName: String,
-  companyDescription: String,
-  companyWebsite: String,
-  companyEmail: String,
-  numberOfEmployees: Number,
-  companyPhone: String,
-  companyLogo: String, // URL to S3 uploaded company logo
-  companyDocument: [String], // Array of URLs to S3 uploaded company documents
-  photo: String, // URL to S3 uploaded personal photo
-  phone: String,
-  panCardNumber: String,
-  gstNumber: String
+  companyName: {
+    type: String,
+    default: ''
+  },
+  companyDescription: {
+    type: String,
+    default: ''
+  },
+  companyWebsite: {
+    type: String,
+    default: ''
+  },
+  companyEmail: {
+    type: String,
+    default: ''
+  },
+  numberOfEmployees: {
+    type: Number,
+    default: null
+  },
+  companyPhone: {
+    type: String,
+    default: ''
+  },
+  companyLogo: {
+    type: String,
+    default: ''
+  }, // URL to S3 uploaded company logo
+  companyDocument: {
+    type: [String],
+    default: []
+  }, // Array of URLs to S3 uploaded company documents
+  photo: {
+    type: String,
+    default: ''
+  }, // URL to S3 uploaded personal photo
+  phone: {
+    type: String,
+    default: ''
+  },
+  panCardNumber: {
+    type: String,
+    default: ''
+  },
+  gstNumber: {
+    type: String,
+    default: ''
+  }
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
@@ -126,7 +212,9 @@ const userSchema = new mongoose.Schema({
   },
   profile: {
     type: mongoose.Schema.Types.Mixed,
-    default: {}
+    default: function() {
+      return {};
+    }
   },
   // Fields for forgot password functionality
   resetPasswordToken: String,
@@ -139,6 +227,12 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 userSchema.index({ email: 1, role: 1 }, { unique: true });
+
+// Add index for Google ID to ensure uniqueness
+userSchema.index({ 'google.id': 1 }, { unique: true, sparse: true });
+
+// Add index for email alone for faster lookups
+userSchema.index({ email: 1 });
 
 userSchema.pre('save', async function(next) {
   // Skip password hashing for Google users

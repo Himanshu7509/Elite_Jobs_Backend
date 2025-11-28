@@ -506,6 +506,7 @@ const resendOTP = async (req, res) => {
 const googleSignup = async (req, res) => {
   try {
     const { googleId, email, name, role, profile } = req.body;
+    console.log('Google signup request body:', req.body);
 
     // Validate required fields
     if (!googleId || !email || !name || !role) {
@@ -523,18 +524,22 @@ const googleSignup = async (req, res) => {
       });
     }
 
+    console.log('Checking for existing user with Google ID:', googleId);
     // Check if user already exists with this Google ID
     const existingUser = await User.findOne({ 'google.id': googleId });
     if (existingUser) {
+      console.log('User with Google ID already exists:', existingUser.email);
       return res.status(400).json({
         success: false,
         message: 'User with this Google account already exists'
       });
     }
 
+    console.log('Checking for existing user with email and role:', email, role);
     // Check if user already exists with the same email and role
     const existingEmailUser = await User.findOne({ email, role });
     if (existingEmailUser) {
+      console.log('User with email and role already exists:', existingEmailUser.email);
       return res.status(400).json({
         success: false,
         message: 'User with this email and role already exists'
@@ -561,49 +566,55 @@ const googleSignup = async (req, res) => {
       google: {
         id: googleId,
         token: '' // Will be populated during actual OAuth flow
-      }
+      },
+      profile: {} // Initialize empty profile object
     };
 
+    console.log('Setting up profile data for role:', role);
     // Add profile based on role
     if (role === 'jobSeeker') {
       userData.profile = {
-        age: profile?.age || null,
-        address: profile?.address || '',
-        phone: profile?.phone || '',
-        githubUrl: profile?.githubUrl || '',
-        linkedinUrl: profile?.linkedinUrl || '',
-        skills: profile?.skills || [],
-        education: profile?.education || [],
-        experience: profile?.experience || [],
-        photo: profile?.photo || '',
-        resume: profile?.resume || '',
-        gender: profile?.gender || '',
-        noticePeriod: profile?.noticePeriod || '',
-        preferredLocation: profile?.preferredLocation || '',
-        designation: profile?.designation || '',
-        expInWork: profile?.expInWork || '',
-        salaryExpectation: profile?.salaryExpectation || '',
-        preferredCategory: profile?.preferredCategory || '',
-        highestEducation: profile?.highestEducation || ''
+        age: profile?.age !== undefined ? profile.age : null,
+        address: profile?.address !== undefined ? profile.address : '',
+        phone: profile?.phone !== undefined ? profile.phone : '',
+        githubUrl: profile?.githubUrl !== undefined ? profile.githubUrl : '',
+        linkedinUrl: profile?.linkedinUrl !== undefined ? profile.linkedinUrl : '',
+        skills: profile?.skills !== undefined ? profile.skills : [],
+        education: profile?.education !== undefined ? profile.education : [],
+        experience: profile?.experience !== undefined ? profile.experience : [],
+        photo: profile?.photo !== undefined ? profile.photo : '',
+        resume: profile?.resume !== undefined ? profile.resume : '',
+        gender: profile?.gender !== undefined ? profile.gender : '',
+        noticePeriod: profile?.noticePeriod !== undefined ? profile.noticePeriod : '',
+        preferredLocation: profile?.preferredLocation !== undefined ? profile.preferredLocation : '',
+        designation: profile?.designation !== undefined ? profile.designation : '',
+        expInWork: profile?.expInWork !== undefined ? profile.expInWork : '',
+        salaryExpectation: profile?.salaryExpectation !== undefined ? profile.salaryExpectation : '',
+        preferredCategory: profile?.preferredCategory !== undefined ? profile.preferredCategory : '',
+        highestEducation: profile?.highestEducation !== undefined ? profile.highestEducation : ''
       };
     } else if (role === 'jobHoster' || role === 'recruiter') {
       userData.profile = {
-        companyName: profile?.companyName || '',
-        companyDescription: profile?.companyDescription || '',
-        companyWebsite: profile?.companyWebsite || '',
-        companyEmail: profile?.companyEmail || '',
-        numberOfEmployees: profile?.numberOfEmployees || null,
-        companyPhone: profile?.companyPhone || '',
-        companyLogo: profile?.companyLogo || '',
-        photo: profile?.photo || '',
-        phone: profile?.phone || '',
-        panCardNumber: profile?.panCardNumber || '',
-        gstNumber: profile?.gstNumber || ''
+        companyName: profile?.companyName !== undefined ? profile.companyName : '',
+        companyDescription: profile?.companyDescription !== undefined ? profile.companyDescription : '',
+        companyWebsite: profile?.companyWebsite !== undefined ? profile.companyWebsite : '',
+        companyEmail: profile?.companyEmail !== undefined ? profile.companyEmail : '',
+        numberOfEmployees: profile?.numberOfEmployees !== undefined ? profile.numberOfEmployees : null,
+        companyPhone: profile?.companyPhone !== undefined ? profile.companyPhone : '',
+        companyLogo: profile?.companyLogo !== undefined ? profile.companyLogo : '',
+        photo: profile?.photo !== undefined ? profile.photo : '',
+        phone: profile?.phone !== undefined ? profile.phone : '',
+        panCardNumber: profile?.panCardNumber !== undefined ? profile.panCardNumber : '',
+        gstNumber: profile?.gstNumber !== undefined ? profile.gstNumber : ''
       };
     }
 
+    console.log('Creating user with data:', JSON.stringify(userData, null, 2));
+    
     const user = new User(userData);
+    console.log('Saving user to database...');
     await user.save();
+    console.log('User saved successfully:', user._id);
 
     // Generate token
     const token = generateToken(user._id, user.role);
@@ -623,10 +634,18 @@ const googleSignup = async (req, res) => {
     });
   } catch (error) {
     console.error('Google signup error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    
+    // More detailed error response
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: 'Internal server error during Google signup',
+      error: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : 'An internal server error occurred'
     });
   }
 };
@@ -635,6 +654,7 @@ const googleSignup = async (req, res) => {
 const googleLogin = async (req, res) => {
   try {
     const { googleId, role } = req.body;
+    console.log('Google login request body:', req.body);
 
     // Validate required fields
     if (!googleId || !role) {
@@ -679,10 +699,18 @@ const googleLogin = async (req, res) => {
     });
   } catch (error) {
     console.error('Google login error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    
+    // More detailed error response
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: 'Internal server error during Google login',
+      error: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : 'An internal server error occurred'
     });
   }
 };

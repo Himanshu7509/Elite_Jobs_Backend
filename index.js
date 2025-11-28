@@ -1,9 +1,10 @@
 import express from 'express';
-import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import session from 'express-session';
-import jwt from 'jsonwebtoken';
 
+// Load environment variables
 dotenv.config();
 
 // Import database connection
@@ -11,6 +12,7 @@ import dbConnect from './src/config/mongodb.js';
 
 // Import passport configuration
 import passport from './src/config/passport.js';
+import jwt from 'jsonwebtoken';
 
 // Import routes
 import authRouter from './src/routes/auth.route.js';
@@ -19,139 +21,163 @@ import recruiterRouter from './src/routes/recruiter.route.js';
 import adminRouter from './src/routes/admin.route.js';
 import eliteTeamRouter from './src/routes/eliteTeam.route.js';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const startServer = async () => {
+  const app = express();
+  const PORT = process.env.PORT || 3000;
 
-// Connect to database
-dbConnect();
+  // Connect to database
+  try {
+    await dbConnect();
+    console.log('✅ Database connection established');
+  } catch (err) {
+    console.error('❌ Failed to connect to database:', err);
+    process.exit(1);
+  }
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Middleware
+  app.use(cors());
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Session middleware for passport
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-session-secret',
-  resave: false,
-  saveUninitialized: false
-}));
+  // Session middleware for passport
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-session-secret',
+    resave: false,
+    saveUninitialized: false
+  }));
 
-// Initialize passport
-app.use(passport.initialize());
-app.use(passport.session());
+  // Initialize passport
+  app.use(passport.initialize());
+  app.use(passport.session());
 
-// Routes
-app.use('/auth', authRouter);
-app.use('/jobs', jobRouter);
-app.use('/recruiter', recruiterRouter);
-app.use('/admin', adminRouter);
-app.use('/elite-team', eliteTeamRouter);
+  // Routes
+  app.use('/auth', authRouter);
+  app.use('/jobs', jobRouter);
+  app.use('/recruiter', recruiterRouter);
+  app.use('/admin', adminRouter);
+  app.use('/elite-team', eliteTeamRouter);
 
-// Google OAuth routes - only set up if credentials are provided
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  app.get('/auth/google', 
-    (req, res, next) => {
-      // Store the role in the session for later use
-      if (req.query.role) {
-        req.session.oauthRole = req.query.role;
-      }
-      next();
-    },
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-  );
-
-  app.get('/auth/google/callback',
-    (req, res, next) => {
-      // Add error handling middleware to catch any errors during authentication
-      passport.authenticate('google', (err, user, info) => {
-        if (err) {
-          console.error('Google OAuth Error:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Google authentication failed',
-            error: err.message
-          });
+  // Google OAuth routes - only set up if credentials are provided
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    app.get('/auth/google', 
+      (req, res, next) => {
+        // Store the role in the session for later use
+        if (req.query.role) {
+          req.session.oauthRole = req.query.role;
         }
-        
-        // Handle the case where user is false but we have info (new user case)
-        if (!user && info && info.googleProfile) {
-          console.log('New user detected in callback, redirecting to role selection');
-          // Redirect to a frontend page where they can select their role
-          const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
-          return res.redirect(`${frontendUrl}/google-role-selection?googleId=${info.googleProfile.id}&email=${info.googleProfile.emails[0].value}&name=${info.googleProfile.displayName}`);
-        }
-        
-        if (!user) {
-          console.error('Google OAuth Failed:', info);
-          return res.status(401).json({
-            success: false,
-            message: 'Google authentication failed',
-            error: info ? info.message : 'Unknown error'
-          });
-        }
-        
-        // If authentication successful, log the user in
-        req.logIn(user, { session: true }, (loginErr) => {
-          if (loginErr) {
-            console.error('Login Error:', loginErr);
+        next();
+      },
+      passport.authenticate('google', { scope: ['profile', 'email'] })
+    );
+
+    app.get('/auth/google/callback',
+      (req, res, next) => {
+        // Add error handling middleware to catch any errors during authentication
+        passport.authenticate('google', (err, user, info) => {
+          if (err) {
+            console.error('Google OAuth Error:', err);
             return res.status(500).json({
               success: false,
-              message: 'Failed to login user',
-              error: loginErr.message
+              message: 'Google authentication failed',
+              error: err.message
             });
           }
-          next();
-        });
-      })(req, res, next);
-    },
-    (req, res) => {
-      try {
-        // For existing users, redirect to Google callback handler with token
-        const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
-        res.redirect(`${frontendUrl}/google-callback?token=${token}`);
-      } catch (error) {
-        console.error('Google OAuth Callback Error:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Something went wrong during Google authentication',
-          error: error.message
-        });
+          
+          // Handle the case where user is false but we have info (new user case)
+          if (!user && info && info.googleProfile) {
+            console.log('New user detected in callback, redirecting to role selection');
+            // Redirect to a frontend page where they can select their role
+            const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
+            return res.redirect(`${frontendUrl}/google-role-selection?googleId=${info.googleProfile.id}&email=${info.googleProfile.emails[0].value}&name=${info.googleProfile.displayName}`);
+          }
+          
+          if (!user) {
+            console.error('Google OAuth Failed:', info);
+            return res.status(401).json({
+              success: false,
+              message: 'Google authentication failed',
+              error: info ? info.message : 'Unknown error'
+            });
+          }
+          
+          // If authentication successful, log the user in
+          req.logIn(user, { session: true }, (loginErr) => {
+            if (loginErr) {
+              console.error('Login Error:', loginErr);
+              return res.status(500).json({
+                success: false,
+                message: 'Failed to login user',
+                error: loginErr.message
+              });
+            }
+            next();
+          });
+        })(req, res, next);
+      },
+      (req, res) => {
+        try {
+          // For existing users, redirect to Google callback handler with token
+          const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+          const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
+          res.redirect(`${frontendUrl}/google-callback?token=${token}`);
+        } catch (error) {
+          console.error('Google OAuth Callback Error:', error);
+          res.status(500).json({
+            success: false,
+            message: 'Something went wrong during Google authentication',
+            error: error.message
+          });
+        }
       }
-    }
-  );
-} else {
-  console.log('Google OAuth routes not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
-}
+    );
+  } else {
+    console.log('Google OAuth routes not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+  }
 
-// Health check endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Elite Jobs Backend API is running!',
-    timestamp: new Date().toISOString()
+  // Health check endpoint
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'Elite Jobs Backend API is running!',
+      timestamp: new Date().toISOString()
+    });
   });
-});
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
+  // Simple test endpoint for google signup
+  app.post('/test-google-signup', (req, res) => {
+    console.log('Test google signup endpoint hit with body:', req.body);
+    res.status(200).json({
+      success: true,
+      message: 'Test endpoint working',
+      data: req.body
+    });
   });
-});
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  // 404 handler
+  app.use((req, res) => {
+    res.status(404).json({
+      success: false,
+      message: 'Route not found'
+    });
   });
-});
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  // Error handling middleware
+  app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong!',
+      error: process.env.NODE_ENV === 'development' ? err.message : {}
+    });
+  });
+
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+};
+
+// Start the server
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
