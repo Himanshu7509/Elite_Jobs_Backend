@@ -37,10 +37,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         return done(null, user);
       }
       
-      // If user doesn't exist, return null to indicate new user needs to be created
+      // If user doesn't exist, return the profile info to indicate new user needs to be created
       // We'll handle user creation in the route controller
       console.log('New user detected, redirecting to role selection');
-      return done(null, { 
+      return done(null, false, { 
         googleProfile: profile,
         accessToken: accessToken
       });
@@ -55,14 +55,25 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
 // Serialize user for session
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  // For new users, we don't serialize anything to session
+  // For existing users, serialize the user ID
+  if (user && user._id) {
+    done(null, user._id.toString());
+  } else {
+    // For new users or cases where we don't want to serialize to session
+    done(null, false);
+  }
 });
 
 // Deserialize user from session
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id);
-    done(null, user);
+    if (id) {
+      const user = await User.findById(id);
+      done(null, user);
+    } else {
+      done(null, false);
+    }
   } catch (error) {
     done(error, null);
   }

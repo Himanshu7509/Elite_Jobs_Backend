@@ -73,6 +73,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             error: err.message
           });
         }
+        
+        // Handle the case where user is false but we have info (new user case)
+        if (!user && info && info.googleProfile) {
+          console.log('New user detected in callback, redirecting to role selection');
+          // Redirect to a frontend page where they can select their role
+          const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
+          return res.redirect(`${frontendUrl}/google-role-selection?googleId=${info.googleProfile.id}&email=${info.googleProfile.emails[0].value}&name=${info.googleProfile.displayName}`);
+        }
+        
         if (!user) {
           console.error('Google OAuth Failed:', info);
           return res.status(401).json({
@@ -81,8 +90,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             error: info ? info.message : 'Unknown error'
           });
         }
+        
         // If authentication successful, log the user in
-        req.logIn(user, (loginErr) => {
+        req.logIn(user, { session: true }, (loginErr) => {
           if (loginErr) {
             console.error('Login Error:', loginErr);
             return res.status(500).json({
@@ -97,13 +107,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     },
     (req, res) => {
       try {
-        // If we have a new user from Google (not yet in our system)
-        if (req.user.googleProfile) {
-          // Redirect to a frontend page where they can select their role
-          const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
-          return res.redirect(`${frontendUrl}/google-role-selection?googleId=${req.user.googleProfile.id}&email=${req.user.googleProfile.emails[0].value}&name=${req.user.googleProfile.displayName}`);
-        }
-        
         // For existing users, redirect to Google callback handler with token
         const token = jwt.sign({ userId: req.user._id, role: req.user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
         const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
