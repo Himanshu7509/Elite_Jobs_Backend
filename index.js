@@ -111,10 +111,9 @@ const startServer = async () => {
     console.log('Google OAuth routes configured');
     app.get('/auth/google', 
       (req, res, next) => {
-        // Store the role in the session for later use
-        if (req.query.role) {
-          req.session.oauthRole = req.query.role;
-        }
+        // Don't store the role in the session anymore since we're not specifying it in the URL
+        // For existing users, we'll try to log them in directly
+        // For new users, they'll select their role on the GoogleRoleSelection page
         next();
       },
       passport.authenticate('google', { scope: ['profile', 'email'] })
@@ -143,6 +142,11 @@ const startServer = async () => {
           
           if (!user) {
             console.error('Google OAuth Failed:', info);
+            // Redirect to role selection page for users who need to sign up
+            if (info && info.message && info.message.includes('not found')) {
+              const frontendUrl = process.env.FRONTEND_URL || 'https://www.eliteindiajobs.com';
+              return res.redirect(`${frontendUrl}/google-role-selection?googleId=${info.googleProfile.id}&email=${info.googleProfile.emails[0].value}&name=${info.googleProfile.displayName}`);
+            }
             return res.status(401).json({
               success: false,
               message: 'Google authentication failed',
