@@ -195,20 +195,30 @@ const recruiterProfileSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: [true, 'Name is required'],
+    trim: true,
+    maxlength: [100, 'Name cannot exceed 100 characters']
   },
   email: {
     type: String,
-    required: true
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   password: {
     type: String,
-    required: true
+    // Make password optional for Google users
+    required: function() {
+      // Password is required only if the user is not registered via Google
+      return !this.google || !this.google.id;
+    },
+    minlength: [6, 'Password must be at least 6 characters long']
   },
   role: {
     type: String,
     enum: ['jobSeeker', 'jobHoster', 'recruiter', 'admin', 'eliteTeam'],
-    required: true
+    required: [true, 'Role is required']
   },
   profile: {
     type: mongoose.Schema.Types.Mixed,
@@ -223,6 +233,24 @@ const userSchema = new mongoose.Schema({
   google: {
     id: String,
     token: String
+  },
+  isVerified: { 
+    type: Boolean, 
+    default: false 
+  },
+  otp: { 
+    type: String 
+  },
+  otpExpires: { 
+    type: Date 
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
   }
 }, { timestamps: true });
 

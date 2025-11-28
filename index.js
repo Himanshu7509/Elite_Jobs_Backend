@@ -3,9 +3,26 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load environment variables
-dotenv.config();
+// Get the directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+console.log('=== STARTING SERVER ===');
+console.log('Current working directory:', process.cwd());
+console.log('Script directory:', __dirname);
+
+// Load environment variables from the correct path
+const envPath = path.resolve(__dirname, '.env');
+console.log('Loading .env from:', envPath);
+dotenv.config({ path: envPath });
+
+console.log('Environment variables after dotenv:');
+console.log('MONGO_URI:', process.env.MONGO_URI);
+console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY);
 
 // Import database connection
 import dbConnect from './src/config/mongodb.js';
@@ -22,6 +39,7 @@ import adminRouter from './src/routes/admin.route.js';
 import eliteTeamRouter from './src/routes/eliteTeam.route.js';
 
 const startServer = async () => {
+  console.log('=== STARTING SERVER FUNCTION ===');
   const app = express();
   const PORT = process.env.PORT || 3000;
 
@@ -39,6 +57,23 @@ const startServer = async () => {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+  // Add logging middleware to see all requests
+  app.use((req, res, next) => {
+    console.log('=== INCOMING REQUEST ===');
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    next();
+  });
+
+  // Add error handling middleware early to catch any issues
+  app.use((err, req, res, next) => {
+    console.error('=== EARLY ERROR HANDLING ===');
+    console.error('Error:', err);
+    next(err);
+  });
+
   // Session middleware for passport
   app.use(session({
     secret: process.env.SESSION_SECRET || 'your-session-secret',
@@ -51,14 +86,29 @@ const startServer = async () => {
   app.use(passport.session());
 
   // Routes
+  console.log('Mounting auth routes');
   app.use('/auth', authRouter);
+  console.log('Auth routes mounted');
+
+  console.log('Mounting jobs routes');
   app.use('/jobs', jobRouter);
+  console.log('Jobs routes mounted');
+
+  console.log('Mounting recruiter routes');
   app.use('/recruiter', recruiterRouter);
+  console.log('Recruiter routes mounted');
+
+  console.log('Mounting admin routes');
   app.use('/admin', adminRouter);
+  console.log('Admin routes mounted');
+
+  console.log('Mounting elite-team routes');
   app.use('/elite-team', eliteTeamRouter);
+  console.log('Elite-team routes mounted');
 
   // Google OAuth routes - only set up if credentials are provided
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    console.log('Google OAuth routes configured');
     app.get('/auth/google', 
       (req, res, next) => {
         // Store the role in the session for later use
@@ -132,6 +182,8 @@ const startServer = async () => {
     );
   } else {
     console.log('Google OAuth routes not configured: Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+    console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+    console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET);
   }
 
   // Health check endpoint
@@ -153,6 +205,16 @@ const startServer = async () => {
     });
   });
 
+  // Another test endpoint to verify server is working
+  app.get('/health', (req, res) => {
+    console.log('Health check endpoint hit');
+    res.status(200).json({
+      success: true,
+      message: 'Server is healthy',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // 404 handler
   app.use((req, res) => {
     res.status(404).json({
@@ -163,7 +225,13 @@ const startServer = async () => {
 
   // Error handling middleware
   app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('=== UNHANDLED ERROR ===');
+    console.error('Error details:', err);
+    console.error('Error stack:', err.stack);
+    console.error('Request URL:', req.url);
+    console.error('Request method:', req.method);
+    console.error('Request body:', req.body);
+    
     res.status(500).json({
       success: false,
       message: 'Something went wrong!',
@@ -177,6 +245,7 @@ const startServer = async () => {
 };
 
 // Start the server
+console.log('=== CALLING START SERVER ===');
 startServer().catch(err => {
   console.error('Failed to start server:', err);
   process.exit(1);

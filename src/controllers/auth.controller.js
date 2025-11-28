@@ -12,6 +12,8 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import resend from '../config/email.js';
 
+console.log('=== LOADING AUTH CONTROLLER ===');
+
 // Generate JWT token
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -504,148 +506,171 @@ const resendOTP = async (req, res) => {
 
 // Google signup - complete signup for new Google users
 const googleSignup = async (req, res) => {
+  console.log('=== GOOGLE SIGNUP ENDPOINT HIT ===');
+  console.log('Request received at:', new Date().toISOString());
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Full request body:', JSON.stringify(req.body, null, 2));
+  
   try {
+    console.log('Starting google signup process...');
     const { googleId, email, name, role, profile } = req.body;
     console.log('Google signup request body:', req.body);
-
+    console.log('Extracted data:', { googleId, email, name, role, profile });
+    
     // Validate required fields
+    console.log('Validating required fields...');
     if (!googleId || !email || !name || !role) {
+      console.log('Missing required fields');
       return res.status(400).json({
         success: false,
-        message: 'Please provide googleId, email, name, and role'
+        message: 'Missing required fields: googleId, email, name, and role are required'
       });
     }
-
-    // Validate role - only allow jobSeeker, jobHoster, and recruiter
-    if (!['jobSeeker', 'jobHoster', 'recruiter'].includes(role)) {
+    
+    // Validate role
+    console.log('Validating role...');
+    const validRoles = ['jobSeeker', 'recruiter'];
+    if (!validRoles.includes(role)) {
+      console.log('Invalid role:', role);
       return res.status(400).json({
         success: false,
-        message: 'Role must be either jobSeeker, jobHoster, or recruiter'
+        message: 'Invalid role. Must be either jobSeeker or recruiter'
       });
     }
-
-    console.log('Checking for existing user with Google ID:', googleId);
+    
     // Check if user already exists with this Google ID
-    const existingUser = await User.findOne({ 'google.id': googleId });
-    if (existingUser) {
-      console.log('User with Google ID already exists:', existingUser.email);
+    console.log('Checking for existing user with Google ID:', googleId);
+    const existingUserByGoogleId = await User.findOne({ 'google.id': googleId });
+    if (existingUserByGoogleId) {
+      console.log('User already exists with this Google ID');
       return res.status(400).json({
         success: false,
-        message: 'User with this Google account already exists'
+        message: 'User already exists with this Google account'
       });
     }
-
+    
+    // Check if user already exists with this email and role combination
     console.log('Checking for existing user with email and role:', email, role);
-    // Check if user already exists with the same email and role
-    const existingEmailUser = await User.findOne({ email, role });
-    if (existingEmailUser) {
-      console.log('User with email and role already exists:', existingEmailUser.email);
+    const existingUserByEmailAndRole = await User.findOne({ email, role });
+    if (existingUserByEmailAndRole) {
+      console.log('User already exists with this email and role');
       return res.status(400).json({
         success: false,
-        message: 'User with this email and role already exists'
+        message: `A ${role} account with this email already exists`
       });
     }
-
-    // Additional check for jobSeeker - ensure email is unique across all users
+    
+    // Additional check for jobSeeker role - email should be unique
     if (role === 'jobSeeker') {
-      const existingEmail = await User.findOne({ email });
-      if (existingEmail && existingEmail.google && !existingEmail.google.id) {
+      console.log('Performing additional jobSeeker email check...');
+      const existingJobSeeker = await User.findOne({ email, role: 'jobSeeker' });
+      if (existingJobSeeker) {
+        console.log('JobSeeker already exists with this email');
         return res.status(400).json({
           success: false,
-          message: 'Email already registered with another account'
+          message: 'A job seeker account with this email already exists'
         });
       }
     }
-
-    // Create new user with Google authentication
+    
+    // Create user data object
+    console.log('Creating user data object...');
     const userData = {
       name,
       email,
-      password: '', // No password for Google users
       role,
+      isVerified: true, // Google users are automatically verified
       google: {
         id: googleId,
-        token: '' // Will be populated during actual OAuth flow
-      },
-      profile: {} // Initialize empty profile object
+        token: '' // We don't store the token for security reasons
+      }
     };
-
+    
+    // Set up profile data based on role
     console.log('Setting up profile data for role:', role);
-    // Add profile based on role
     if (role === 'jobSeeker') {
       userData.profile = {
-        age: profile?.age !== undefined ? profile.age : null,
-        address: profile?.address !== undefined ? profile.address : '',
-        phone: profile?.phone !== undefined ? profile.phone : '',
-        githubUrl: profile?.githubUrl !== undefined ? profile.githubUrl : '',
-        linkedinUrl: profile?.linkedinUrl !== undefined ? profile.linkedinUrl : '',
-        skills: profile?.skills !== undefined ? profile.skills : [],
-        education: profile?.education !== undefined ? profile.education : [],
-        experience: profile?.experience !== undefined ? profile.experience : [],
-        photo: profile?.photo !== undefined ? profile.photo : '',
-        resume: profile?.resume !== undefined ? profile.resume : '',
-        gender: profile?.gender !== undefined ? profile.gender : '',
-        noticePeriod: profile?.noticePeriod !== undefined ? profile.noticePeriod : '',
-        preferredLocation: profile?.preferredLocation !== undefined ? profile.preferredLocation : '',
-        designation: profile?.designation !== undefined ? profile.designation : '',
-        expInWork: profile?.expInWork !== undefined ? profile.expInWork : '',
-        salaryExpectation: profile?.salaryExpectation !== undefined ? profile.salaryExpectation : '',
-        preferredCategory: profile?.preferredCategory !== undefined ? profile.preferredCategory : '',
-        highestEducation: profile?.highestEducation !== undefined ? profile.highestEducation : ''
+        age: profile?.age || null,
+        address: profile?.address || '',
+        phone: profile?.phone || '',
+        githubUrl: profile?.githubUrl || '',
+        linkedinUrl: profile?.linkedinUrl || '',
+        skills: profile?.skills || [],
+        education: profile?.education || [],
+        experience: profile?.experience || [],
+        photo: profile?.photo || '',
+        resume: profile?.resume || '',
+        gender: profile?.gender || '',
+        noticePeriod: profile?.noticePeriod || '',
+        preferredLocation: profile?.preferredLocation || '',
+        designation: profile?.designation || '',
+        expInWork: profile?.expInWork || '',
+        salaryExpectation: profile?.salaryExpectation || '',
+        preferredCategory: profile?.preferredCategory || '',
+        highestEducation: profile?.highestEducation || ''
       };
-    } else if (role === 'jobHoster' || role === 'recruiter') {
+    } else if (role === 'recruiter') {
       userData.profile = {
-        companyName: profile?.companyName !== undefined ? profile.companyName : '',
-        companyDescription: profile?.companyDescription !== undefined ? profile.companyDescription : '',
-        companyWebsite: profile?.companyWebsite !== undefined ? profile.companyWebsite : '',
-        companyEmail: profile?.companyEmail !== undefined ? profile.companyEmail : '',
-        numberOfEmployees: profile?.numberOfEmployees !== undefined ? profile.numberOfEmployees : null,
-        companyPhone: profile?.companyPhone !== undefined ? profile.companyPhone : '',
-        companyLogo: profile?.companyLogo !== undefined ? profile.companyLogo : '',
-        photo: profile?.photo !== undefined ? profile.photo : '',
-        phone: profile?.phone !== undefined ? profile.phone : '',
-        panCardNumber: profile?.panCardNumber !== undefined ? profile.panCardNumber : '',
-        gstNumber: profile?.gstNumber !== undefined ? profile.gstNumber : ''
+        companyName: profile?.companyName || '',
+        companyAddress: profile?.companyAddress || '',
+        companyPhone: profile?.companyPhone || '',
+        companyWebsite: profile?.companyWebsite || '',
+        companyLogo: profile?.companyLogo || '',
+        companyDescription: profile?.companyDescription || '',
+        contactPerson: profile?.contactPerson || '',
+        designation: profile?.designation || '',
+        companyDocuments: profile?.companyDocuments || [],
+        companySize: profile?.companySize || '',
+        industry: profile?.industry || '',
+        establishedYear: profile?.establishedYear || null,
+        companyType: profile?.companyType || '',
+        linkedinUrl: profile?.linkedinUrl || ''
       };
     }
-
-    console.log('Creating user with data:', JSON.stringify(userData, null, 2));
     
+    // Create the user without a password for Google users
+    console.log('Creating user with data:', JSON.stringify(userData, null, 2));
     const user = new User(userData);
-    console.log('Saving user to database...');
     await user.save();
-    console.log('User saved successfully:', user._id);
-
-    // Generate token
-    const token = generateToken(user._id, user.role);
-
+    
+    console.log('User created successfully:', user._id);
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    console.log('Token generated for user');
+    
+    // Send success response
     res.status(201).json({
       success: true,
-      message: 'User registered successfully with Google',
-      data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        },
-        token
+      message: 'Google signup successful',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profile: user.profile,
+        isVerified: user.isVerified
       }
     });
   } catch (error) {
+    console.error('=== GOOGLE SIGNUP ERROR ===');
     console.error('Google signup error:', error);
     console.error('Error stack:', error.stack);
     console.error('Request body:', req.body);
     
-    // More detailed error response
+    // Send error response
     res.status(500).json({
       success: false,
       message: 'Internal server error during Google signup',
-      error: process.env.NODE_ENV === 'development' ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      } : 'An internal server error occurred'
+      error: 'An internal server error occurred'
     });
   }
 };
