@@ -531,12 +531,12 @@ const googleSignup = async (req, res) => {
     
     // Validate role
     console.log('Validating role...');
-    const validRoles = ['jobSeeker', 'recruiter'];
+    const validRoles = ['jobSeeker', 'jobHoster', 'recruiter'];
     if (!validRoles.includes(role)) {
       console.log('Invalid role:', role);
       return res.status(400).json({
         success: false,
-        message: 'Invalid role. Must be either jobSeeker or recruiter'
+        message: 'Invalid role. Must be either jobSeeker, jobHoster, or recruiter'
       });
     }
     
@@ -610,6 +610,21 @@ const googleSignup = async (req, res) => {
         salaryExpectation: profile?.salaryExpectation || '',
         preferredCategory: profile?.preferredCategory || '',
         highestEducation: profile?.highestEducation || ''
+      };
+    } else if (role === 'jobHoster') {
+      userData.profile = {
+        companyName: profile?.companyName || '',
+        companyDescription: profile?.companyDescription || '',
+        companyWebsite: profile?.companyWebsite || '',
+        companyEmail: profile?.companyEmail || '',
+        numberOfEmployees: profile?.numberOfEmployees || null,
+        companyPhone: profile?.companyPhone || '',
+        companyLogo: profile?.companyLogo || '',
+        companyDocument: profile?.companyDocument || [],
+        photo: profile?.photo || '',
+        phone: profile?.phone || '',
+        panCardNumber: profile?.panCardNumber || '',
+        gstNumber: profile?.gstNumber || ''
       };
     } else if (role === 'recruiter') {
       userData.profile = {
