@@ -52,26 +52,27 @@ const jobSeekerProfileSchema = new mongoose.Schema({
   photo: String, 
   resume: String, 
   gender: {
-    type: String
-   
+    type: String,
+    enum: GENDER_OPTIONS
   },
   noticePeriod: {
-    type: String
-   
+    type: String,
+    enum: NOTICE_PERIOD_OPTIONS
   },
   preferredLocation: String,
   designation: String,
   expInWork: {
-    type: String
-   
+    type: String,
+    enum: EXPERIENCE_OPTIONS
   },
   salaryExpectation: String,
   preferredCategory: {
-    type: String
-   
+    type: String,
+    enum: CATEGORY_OPTIONS
   },
   highestEducation: {
-    type: String
+    type: String,
+    enum: EDUCATION_OPTIONS
   }
 }, { _id: false });
 

@@ -749,22 +749,22 @@ const signup = async (req, res) => {
       userData.profile = {
         age: profile?.age || null,
         address: profile?.address || '',
-        phone: profile?.phone || '', // New field
-        githubUrl: profile?.githubUrl || '', // New field
-        linkedinUrl: profile?.linkedinUrl || '', // New field
-        skills: profile?.skills || [], // New field
+        phone: profile?.phone || '',
+        githubUrl: profile?.githubUrl || '',
+        linkedinUrl: profile?.linkedinUrl || '',
+        skills: profile?.skills || [],
         education: profile?.education || [],
         experience: profile?.experience || [],
         photo: profile?.photo || '',
         resume: profile?.resume || '',
-        gender: profile?.gender || '', // New field
-        noticePeriod: profile?.noticePeriod || '', // New field
-        preferredLocation: profile?.preferredLocation || '', // New field
-        designation: profile?.designation || '', // New field
-        expInWork: profile?.expInWork || '', // New field
-        salaryExpectation: profile?.salaryExpectation || '', // New field
-        preferredCategory: profile?.preferredCategory || '', // New field
-        highestEducation: profile?.highestEducation || '' // New field
+        gender: profile?.gender || '',
+        noticePeriod: profile?.noticePeriod || '',
+        preferredLocation: profile?.preferredLocation || '',
+        designation: profile?.designation || '',
+        expInWork: profile?.expInWork || '',
+        salaryExpectation: profile?.salaryExpectation || '',
+        preferredCategory: profile?.preferredCategory || '',
+        highestEducation: profile?.highestEducation || ''
       };
     } else if (role === 'jobHoster' || role === 'recruiter') {
       userData.profile = {
