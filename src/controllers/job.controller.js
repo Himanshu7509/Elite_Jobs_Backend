@@ -197,7 +197,7 @@ const createJob = async (req, res) => {
 // Get all jobs (Public)
 const getAllJobs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, location, employmentType, experienceLevel, verificationStatus } = req.query;
+    const { page = 1, limit = 10, search, location, employmentType, experienceLevel, verificationStatus, category, postedBy, postedByAdmin } = req.query;
     
     // Build filter object
     const filter = { isActive: true };
@@ -220,6 +220,11 @@ const getAllJobs = async (req, res) => {
     
     if (experienceLevel) {
       filter.experienceLevel = experienceLevel;
+    }
+    
+    // Add category filter if provided
+    if (category && category !== 'all') {
+      filter.category = category;
     }
     
     // Add verification status filter if provided
@@ -247,6 +252,20 @@ const getAllJobs = async (req, res) => {
         }
         
         filter.verificationStatus = status;
+      }
+    }
+    
+    // Add postedBy filter if provided
+    if (postedBy) {
+      filter.postedBy = postedBy;
+    }
+    
+    // Add postedByAdmin filter if provided
+    if (postedByAdmin === 'true') {
+      // Find admin user
+      const adminUser = await User.findOne({ role: 'admin' });
+      if (adminUser) {
+        filter.postedBy = adminUser._id;
       }
     }
     
