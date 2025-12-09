@@ -1413,6 +1413,47 @@ const getJobCountsByVerificationStatus = async (req, res) => {
   }
 };
 
+// Get job counts by team member
+const getJobCountsByTeamMember = async (req, res) => {
+  try {
+    // Find all eliteTeam users
+    const teamMembers = await User.find({ role: 'eliteTeam' })
+      .select('name email');
+    
+    // Get job counts for each team member
+    const teamMemberStats = [];
+    
+    for (const member of teamMembers) {
+      const jobCount = await Job.countDocuments({ 
+        postedBy: member._id,
+        isActive: true
+      });
+      
+      teamMemberStats.push({
+        memberId: member._id,
+        name: member.name,
+        email: member.email,
+        jobCount: jobCount
+      });
+    }
+    
+    // Sort by job count descending
+    teamMemberStats.sort((a, b) => b.jobCount - a.jobCount);
+    
+    res.status(200).json({
+      success: true,
+      data: teamMemberStats
+    });
+  } catch (error) {
+    console.error('Get job counts by team member error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export {
   createJob,
   getAllJobs,
@@ -1434,5 +1475,6 @@ export {
   getJobsByVerificationStatus,
   migrateVerificationStatus,
   getJobCountsByVerificationStatus,
-  getJobEnumOptions // Add the new export
+  getJobCountsByTeamMember, // Add the new export
+  getJobEnumOptions
 };
