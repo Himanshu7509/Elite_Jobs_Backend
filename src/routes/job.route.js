@@ -20,7 +20,8 @@ import {
   getJobsByVerificationStatus,
   migrateVerificationStatus,
   getJobCountsByVerificationStatus,
-  getJobCountsByTeamMember, // Import the new function
+  getJobCountsByTeamMember,
+  getAllCompanies, // Import the new function
   getJobEnumOptions
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
@@ -31,7 +32,8 @@ const jobRouter = express.Router();
 jobRouter.get('/', getAllJobs);
 jobRouter.get('/categories', getJobCountsByCategory);
 jobRouter.get('/verification-counts', getJobCountsByVerificationStatus);
-jobRouter.get('/team-stats', getJobCountsByTeamMember); // Add the new route
+jobRouter.get('/team-stats', getJobCountsByTeamMember);
+jobRouter.get('/companies', getAllCompanies); // Add the new route
 jobRouter.get('/options', getJobEnumOptions);
 
 // Protected routes - Job Seekers

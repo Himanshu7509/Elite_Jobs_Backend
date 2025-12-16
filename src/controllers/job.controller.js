@@ -1473,6 +1473,48 @@ const getJobCountsByTeamMember = async (req, res) => {
   }
 };
 
+// Get all companies with job counts (Accessible to all user roles)
+const getAllCompanies = async (req, res) => {
+  try {
+    // Aggregate jobs by company name with counts
+    const companyAggregation = await Job.aggregate([
+      { $match: { isActive: true } }, // Only count active jobs
+      {
+        $group: {
+          _id: "$company.name",
+          count: { $sum: 1 },
+          companyInfo: { $first: "$company" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          companyName: "$_id",
+          count: 1,
+          companyInfo: 1
+        }
+      },
+      { $sort: { count: -1, companyName: 1 } } // Sort by count descending, then by name
+    ]);
+
+    // Filter out any null/empty company names
+    const companies = companyAggregation.filter(company => company.companyName);
+    
+    res.status(200).json({
+      success: true,
+      data: companies,
+      totalCompanies: companies.length
+    });
+  } catch (error) {
+    console.error('Get all companies error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 export {
   createJob,
   getAllJobs,
@@ -1494,6 +1536,7 @@ export {
   getJobsByVerificationStatus,
   migrateVerificationStatus,
   getJobCountsByVerificationStatus,
-  getJobCountsByTeamMember, // Add the new export
+  getJobCountsByTeamMember,
+  getAllCompanies, // Add the new export
   getJobEnumOptions
 };
