@@ -892,7 +892,7 @@ const getJobCountsByCategory = async (req, res) => {
   try {
     // Aggregate jobs by category with counts
     const categoryCounts = await Job.aggregate([
-      { $match: { isActive: true } }, // Only count active jobs
+      { $match: { isActive: true, verificationStatus: 'verified' } }, // Only count active and verified jobs
       {
         $group: {
           _id: "$category",
@@ -937,6 +937,32 @@ const getJobCountsByCategory = async (req, res) => {
     });
   } catch (error) {
     console.error('Get job counts by category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all filter options
+const getAllFilterOptions = async (req, res) => {
+  try {
+    // Return all predefined filter options
+    res.status(200).json({
+      success: true,
+      data: {
+        categories: CATEGORY_OPTIONS,
+        experienceLevels: EXPERIENCE_LEVEL_OPTIONS,
+        jobTypes: JOB_TYPE_OPTIONS,
+        workTypes: WORK_TYPE_OPTIONS,
+        interviewTypes: INTERVIEW_TYPE_OPTIONS,
+        noticePeriods: NOTICE_PERIOD_OPTIONS,
+        shifts: SHIFT_OPTIONS
+      }
+    });
+  } catch (error) {
+    console.error('Get all filter options error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -1538,5 +1564,6 @@ export {
   getJobCountsByVerificationStatus,
   getJobCountsByTeamMember,
   getAllCompanies, // Add the new export
-  getJobEnumOptions
+  getJobEnumOptions,
+  getAllFilterOptions
 };

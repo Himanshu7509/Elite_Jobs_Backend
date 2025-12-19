@@ -22,7 +22,8 @@ import {
   getJobCountsByVerificationStatus,
   getJobCountsByTeamMember,
   getAllCompanies, // Import the new function
-  getJobEnumOptions
+  getJobEnumOptions,
+  getAllFilterOptions
 } from '../controllers/job.controller.js';
 import { authMiddleware, authorizeRole } from '../middleware/auth.middleware.js';
 
@@ -35,6 +36,7 @@ jobRouter.get('/verification-counts', getJobCountsByVerificationStatus);
 jobRouter.get('/team-stats', getJobCountsByTeamMember);
 jobRouter.get('/companies', getAllCompanies); // Add the new route
 jobRouter.get('/options', getJobEnumOptions);
+jobRouter.get('/filter-options', getAllFilterOptions);
 
 // Protected routes - Job Seekers
 jobRouter.post('/:id/apply', authMiddleware, authorizeRole('jobSeeker'), applyForJob);
