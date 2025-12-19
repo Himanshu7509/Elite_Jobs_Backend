@@ -291,7 +291,14 @@ const getAllJobs = async (req, res) => {
         jobs,
         totalPages: Math.ceil(total / limit),
         currentPage: parseInt(page),
-        totalJobs: total
+        totalJobs: total,
+        filterOptions: {
+          categories: CATEGORY_OPTIONS,
+          experienceLevels: EXPERIENCE_LEVEL_OPTIONS,
+          jobTypes: JOB_TYPE_OPTIONS,
+          workTypes: WORK_TYPE_OPTIONS,
+          interviewTypes: INTERVIEW_TYPE_OPTIONS
+        }
       }
     });
   } catch (error) {
