@@ -197,7 +197,7 @@ const createJob = async (req, res) => {
 // Get all jobs (Public)
 const getAllJobs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, location, employmentType, experienceLevel, verificationStatus, category, postedBy, postedByAdmin } = req.query;
+    const { page = 1, limit = 10, search, location, employmentType, experienceLevel, verificationStatus, category, postedBy, postedByAdmin, sortBy } = req.query;
     
     // Build filter object
     const filter = { isActive: true };
@@ -269,6 +269,32 @@ const getAllJobs = async (req, res) => {
       }
     }
     
+    // Determine sort order
+    let sortOption = { createdAt: -1 }; // Default: newest first
+    
+    if (sortBy) {
+      switch (sortBy) {
+        case 'oldest':
+          sortOption = { createdAt: 1 }; // Oldest first
+          break;
+        case 'salaryHighLow':
+          // Sort by max salary descending (handling potential missing salary data)
+          sortOption = { 'salary.max': -1 };
+          break;
+        case 'salaryLowHigh':
+          // Sort by max salary ascending (handling potential missing salary data)
+          sortOption = { 'salary.max': 1 };
+          break;
+        case 'company':
+          // Sort by company name ascending
+          sortOption = { 'company.name': 1 };
+          break;
+        default:
+          // Default to newest
+          sortOption = { createdAt: -1 };
+      }
+    }
+    
     // Get jobs with pagination
     const jobs = await Job.find(filter)
       .populate({
@@ -278,7 +304,7 @@ const getAllJobs = async (req, res) => {
           path: 'profile'
         }
       })
-      .sort({ createdAt: -1 })
+      .sort(sortOption)
       .limit(limit * 1)
       .skip((page - 1) * limit);
       
