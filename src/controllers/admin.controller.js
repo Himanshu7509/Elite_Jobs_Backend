@@ -115,10 +115,33 @@ const createJobDirect = async (req, res) => {
 // Get all applicants with their profile details and job applications (Admin only)
 const getAllApplicants = async (req, res) => {
   try {
+    const { page = 1, limit = 10, search, role } = req.query;
+    
+    // Build filter object
+    let filter = {};
+    
+    // Add search filter if provided
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Add role filter if provided
+    if (role && role !== 'all') {
+      filter.role = role;
+    }
+    
+    // Get total count for pagination
+    const total = await User.countDocuments(filter);
+    
     // Find all users with their applications
-    const users = await User.find({})
+    const users = await User.find(filter)
       .select('-password')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     // Get all applications with populated data
     const applications = await Application.find({})
@@ -164,7 +187,12 @@ const getAllApplicants = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: applicants
+      data: {
+        applicants,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        totalApplicants: total
+      }
     });
   } catch (error) {
     console.error('Get all applicants error:', error);

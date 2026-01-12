@@ -623,7 +623,6 @@ const deleteJob = async (req, res) => {
   }
 };
 
-// Update application status (Job Hoster only - for own jobs)
 const updateApplicationStatus = async (req, res) => {
   try {
     const { id } = req.params; // application ID
