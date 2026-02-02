@@ -42,10 +42,13 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
   'https://www.eliteindiajobs.com',
   'https://eliteindiajobs.com',
   'https://www.eliteindiajobs.in',
   'https://eliteindiajobs.in',
+  'https://admin-panel-job-portal-six.vercel.app'
 ];
 
 app.use(
