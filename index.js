@@ -49,7 +49,7 @@ const allowedOrigins = [
   'https://www.eliteindiajobs.in',
   'https://eliteindiajobs.in',
   'https://admin-panel-job-portal-six.vercel.app',
-  'https://admin.eliteindiajobs.in',
+  'https://admin.eliteindiajobs.com',
 ];
 
 app.use(
