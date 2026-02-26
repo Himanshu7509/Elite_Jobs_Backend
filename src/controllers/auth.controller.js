@@ -883,6 +883,7 @@ const signup = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
+    console.log("BODY:", req.body);
 
     // Validate required fields
     if (!email || !password || !role) {

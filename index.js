@@ -27,6 +27,7 @@ import jobRouter from './src/routes/job.route.js';
 import recruiterRouter from './src/routes/recruiter.route.js';
 import adminRouter from './src/routes/admin.route.js';
 import eliteTeamRouter from './src/routes/eliteTeam.route.js';
+import contactRouter from './src/routes/contact.route.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -101,6 +102,7 @@ app.use('/jobs', jobRouter);
 app.use('/recruiter', recruiterRouter);
 app.use('/admin', adminRouter);
 app.use('/elite-team', eliteTeamRouter);
+app.use('/api/contact', contactRouter);
 
 /* ===============================
    GOOGLE OAUTH
