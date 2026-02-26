@@ -102,7 +102,7 @@ app.use('/jobs', jobRouter);
 app.use('/recruiter', recruiterRouter);
 app.use('/admin', adminRouter);
 app.use('/elite-team', eliteTeamRouter);
-app.use('/api/contact', contactRouter);
+app.use('/contact', contactRouter);
 
 /* ===============================
    GOOGLE OAUTH
