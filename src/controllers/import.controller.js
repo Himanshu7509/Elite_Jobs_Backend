@@ -3,71 +3,102 @@ import XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import resend from '../config/email.js';
 
+// Add this import for better error handling
+import mongoose from 'mongoose';
+
 // Convert Excel row to user object
-const convertExcelRowToUser = (row) => {
-  // Clean and normalize data
-  const cleanValue = (value) => {
-    if (value === null || value === undefined || value === '') return '';
-    return String(value).trim();
-  };
+export const convertExcelRowToUser = (row) => {
+  try {
+    // Clean and normalize data
+    const cleanValue = (value) => {
+      if (value === null || value === undefined || value === '') return '';
+      return String(value).trim();
+    };
 
-  const email = cleanValue(row['Email']);
-  const phone = cleanValue(row['Phone No.']);
+    const email = cleanValue(row['Email']);
 
-  // Validate required fields
-  if (!email) {
-    throw new Error('Email is required for all job seekers');
+    // Validate required fields
+    if (!email) {
+      throw new Error('Email is required for all job seekers');
+    }
+
+    // Validate email format
+    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error(`Invalid email format: ${email}`);
+    }
+
+    // Process phone numbers
+    const phone = cleanValue(row['Phone No.']);
+    const alternatePhone = cleanValue(row['Alternate No.']);
+
+    // Process arrays from Excel cells
+    const processArrayField = (value) => {
+      if (!value) return [];
+      const strValue = cleanValue(value);
+      if (!strValue) return [];
+      return strValue.split(',').map(item => item.trim()).filter(item => item);
+    };
+
+    return {
+      name: cleanValue(row['Full Name']) || '',
+      email: email.toLowerCase(),
+      password: uuidv4().slice(0, 8), // Generate temporary password
+      role: 'jobSeeker',
+      isImported: true,
+      importedFrom: 'excel-import',
+      isVerified: false, // Will be verified after first login
+      profile: {
+        age: row['Age'] ? parseInt(row['Age']) : null,
+        gender: cleanValue(row['Gender']),
+        phone: phone,
+        alternatePhone: alternatePhone,
+        address: cleanValue(row['Address']),
+        highestEducation: cleanValue(row['Highest Education']),
+        certifications: processArrayField(row['Certification']),
+        skills: processArrayField(row['Skills']),
+        experience: processArrayField(row['Work Experience']),
+        designation: cleanValue(row['Applied Post']),
+        // Default values for other required fields
+        noticePeriod: null,
+        preferredLocation: '',
+        expInWork: null,
+        salaryExpectation: '',
+        preferredCategory: null,
+        photo: '',
+        resume: '',
+        githubUrl: '',
+        linkedinUrl: '',
+        education: []
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  } catch (error) {
+    console.error('Error in convertExcelRowToUser:', error);
+    throw error;
   }
-
-  // Validate email format
-  const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-  if (!emailRegex.test(email)) {
-    throw new Error(`Invalid email format: ${email}`);
-  }
-
-  return {
-    name: cleanValue(row['Full Name']),
-    email: email.toLowerCase(),
-    password: uuidv4().slice(0, 8), // Generate temporary password
-    role: 'jobSeeker',
-    isImported: true,
-    importedFrom: 'excel-import',
-    isVerified: false, // Will be verified after first login
-    profile: {
-      age: row['Age'] ? parseInt(row['Age']) : null,
-      gender: cleanValue(row['Gender']),
-      phone: phone,
-      alternatePhone: cleanValue(row['Alternate No.']),
-      address: cleanValue(row['Address']),
-      highestEducation: cleanValue(row['Highest Education']),
-      certifications: cleanValue(row['Certification']) ? 
-        cleanValue(row['Certification']).split(',').map(cert => cert.trim()).filter(cert => cert) : [],
-      skills: cleanValue(row['Skills']) ? 
-        cleanValue(row['Skills']).split(',').map(skill => skill.trim()).filter(skill => skill) : [],
-      experience: cleanValue(row['Work Experience']) ? 
-        cleanValue(row['Work Experience']).split(',').map(exp => exp.trim()).filter(exp => exp) : [],
-      designation: cleanValue(row['Applied Post']),
-      // Default values for other required fields
-      noticePeriod: null,
-      preferredLocation: '',
-      expInWork: null,
-      salaryExpectation: '',
-      preferredCategory: null,
-      photo: '',
-      resume: '',
-      githubUrl: '',
-      linkedinUrl: '',
-      education: []
-    },
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
 };
 
 // Import job seekers from Excel file
 export const importJobSeekers = async (req, res) => {
   try {
+    console.log('📥 Import job seekers endpoint called');
+    
+    // Check database connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error('❌ Database not connected');
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error'
+      });
+    }
+    
+    console.log('📁 Request files:', req.files);
+    console.log('📄 Request file:', req.file);
+    
     if (!req.file) {
+      console.error('❌ No file uploaded in request');
       return res.status(400).json({
         success: false,
         message: 'Please upload an Excel file'
@@ -76,15 +107,50 @@ export const importJobSeekers = async (req, res) => {
 
     console.log('🔄 Starting job seeker import...');
     
+    // Check if file exists and has buffer
+    if (!req.file.buffer) {
+      console.error('❌ No file buffer found in request');
+      console.error('❌ File object:', req.file);
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded or file buffer missing'
+      });
+    }
+    
+    console.log(`📁 File received: ${req.file.originalname} (${req.file.mimetype})`);
+    console.log(`📊 File size: ${req.file.buffer.length} bytes`);
+    
     // Read Excel file
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    let workbook;
+    try {
+      workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      console.log('✅ Excel file parsed successfully');
+    } catch (parseError) {
+      console.error('❌ Excel parsing error:', parseError);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Excel file format',
+        error: parseError.message
+      });
+    }
+    
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      console.error('❌ No worksheets found in Excel file');
+      return res.status(400).json({
+        success: false,
+        message: 'No worksheets found in Excel file'
+      });
+    }
+    
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
+    console.log(`📋 Working with sheet: ${sheetName}`);
     
     // Convert to JSON
     const jsonData = XLSX.utils.sheet_to_json(worksheet);
     
     console.log(`📊 Found ${jsonData.length} records in Excel file`);
+    console.log(`📋 First row keys:`, Object.keys(jsonData[0] || {}));
     
     if (jsonData.length === 0) {
       return res.status(400).json({
@@ -99,44 +165,67 @@ export const importJobSeekers = async (req, res) => {
     const missingColumns = requiredColumns.filter(col => !(col in firstRow));
     
     if (missingColumns.length > 0) {
+      console.error('❌ Missing required columns:', missingColumns);
       return res.status(400).json({
         success: false,
         message: `Missing required columns: ${missingColumns.join(', ')}`,
-        availableColumns: Object.keys(firstRow)
+        availableColumns: Object.keys(firstRow),
+        requiredColumns: requiredColumns
       });
     }
+    
+    console.log('✅ Required columns found');
     
     // Process each row
     const usersToInsert = [];
     const errors = [];
     let processedRecords = 0;
     
+    console.log('🔄 Processing rows...');
     for (let i = 0; i < jsonData.length; i++) {
       try {
         const row = jsonData[i];
+        console.log(`📋 Processing row ${i + 1}:`, {
+          'Full Name': row['Full Name'],
+          'Email': row['Email']
+        });
         
         // Skip rows where email is empty
         if (!row['Email'] || row['Email'].toString().trim() === '') {
           errors.push(`Row ${i + 1}: No email provided`);
+          console.log(`❌ Row ${i + 1}: Skipping - no email`);
           continue;
         }
         
         const user = convertExcelRowToUser(row);
+        console.log(`✅ Row ${i + 1}: User object created`);
+        
+        // Validate required fields before checking existence
+        if (!user.name || !user.email) {
+          errors.push(`Row ${i + 1}: Missing required fields (name or email)`);
+          console.log(`❌ Row ${i + 1}: Missing required fields`);
+          continue;
+        }
         
         // Check if user already exists
-        const existingUser = await User.findOne({ email: user.email });
+        const existingUser = await User.findOne({ email: user.email }).lean();
         if (existingUser) {
           errors.push(`Row ${i + 1}: User with email ${user.email} already exists`);
+          console.log(`❌ Row ${i + 1}: User already exists`);
           continue;
         }
         
         usersToInsert.push(user);
         processedRecords++;
+        console.log(`✅ Row ${i + 1}: Ready for insertion`);
         
       } catch (error) {
+        console.error(`❌ Row ${i + 1}: Error -`, error.message);
         errors.push(`Row ${i + 1}: ${error.message}`);
       }
     }
+    
+    console.log(`📊 Processing complete: ${processedRecords} records to insert, ${errors.length} errors`);
     
     let insertedCount = 0;
     if (usersToInsert.length > 0) {
@@ -146,15 +235,44 @@ export const importJobSeekers = async (req, res) => {
       const batchSize = 50;
       for (let i = 0; i < usersToInsert.length; i += batchSize) {
         const batch = usersToInsert.slice(i, i + batchSize);
-        const result = await User.insertMany(batch);
-        insertedCount += result.length;
-        console.log(`✅ Inserted batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(usersToInsert.length/batchSize)}`);
+        console.log(`🔄 Inserting batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(usersToInsert.length/batchSize)}`);
+        try {
+          const result = await User.insertMany(batch, { ordered: false }); // Continue on validation errors
+          insertedCount += result.length;
+          console.log(`✅ Inserted batch ${Math.floor(i/batchSize) + 1}: ${result.length} users`);
+        } catch (batchError) {
+          console.error(`❌ Batch insertion error:`, batchError);
+          // Handle duplicate key errors or validation errors
+          if (batchError.code === 11000) {
+            console.log('🔄 Handling duplicate key errors by individual insert');
+            // Handle duplicate key error by inserting one by one
+            for (const user of batch) {
+              try {
+                await User.create(user);
+                insertedCount++;
+                console.log(`✅ Individual insert successful for ${user.email}`);
+              } catch (individualError) {
+                if (individualError.code !== 11000) { // Skip duplicates, report other errors
+                  console.error(`❌ Individual insert error for ${user.email}:`, individualError.message);
+                  errors.push(`Individual insert error for ${user.email}: ${individualError.message}`);
+                } else {
+                  console.log(`ℹ️  Skipping duplicate for ${user.email}`);
+                }
+              }
+            }
+          } else {
+            // Re-throw if it's not a duplicate error we can handle
+            console.error('❌ Non-duplicate error, re-throwing');
+            throw batchError;
+          }
+        }
       }
       
       console.log(`🎉 Successfully imported ${insertedCount} job seekers!`);
     }
     
     // Send success response
+    console.log('📤 Sending success response');
     res.status(200).json({
       success: true,
       message: `Import completed successfully`,
@@ -169,10 +287,18 @@ export const importJobSeekers = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Import failed:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error name:', error.name);
+    
     res.status(500).json({
       success: false,
       message: 'Import failed',
-      error: error.message
+      error: error.message,
+      errorCode: error.code,
+      errorName: error.name,
+      // Include stack trace in development
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });
   }
 };
