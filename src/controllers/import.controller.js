@@ -101,7 +101,7 @@ export const importJobSeekers = async (req, res) => {
       console.error('❌ No file uploaded in request');
       return res.status(400).json({
         success: false,
-        message: 'Please upload an Excel file'
+        message: 'Please upload an Excel or JSON file'
       });
     }
 
@@ -120,42 +120,62 @@ export const importJobSeekers = async (req, res) => {
     console.log(`📁 File received: ${req.file.originalname} (${req.file.mimetype})`);
     console.log(`📊 File size: ${req.file.buffer.length} bytes`);
     
-    // Read Excel file
-    let workbook;
-    try {
-      workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-      console.log('✅ Excel file parsed successfully');
-    } catch (parseError) {
-      console.error('❌ Excel parsing error:', parseError);
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid Excel file format',
-        error: parseError.message
-      });
+    let jsonData = [];
+    
+    // Handle different file types
+    if (req.file.mimetype === 'application/json') {
+      // Handle JSON file
+      try {
+        const jsonString = req.file.buffer.toString('utf8');
+        jsonData = JSON.parse(jsonString);
+        console.log('✅ JSON file parsed successfully');
+        console.log(`📊 Found ${jsonData.length} records in JSON file`);
+      } catch (parseError) {
+        console.error('❌ JSON parsing error:', parseError);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid JSON file format',
+          error: parseError.message
+        });
+      }
+    } else {
+      // Handle Excel file
+      let workbook;
+      try {
+        workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        console.log('✅ Excel file parsed successfully');
+      } catch (parseError) {
+        console.error('❌ Excel parsing error:', parseError);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid Excel file format',
+          error: parseError.message
+        });
+      }
+      
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        console.error('❌ No worksheets found in Excel file');
+        return res.status(400).json({
+          success: false,
+          message: 'No worksheets found in Excel file'
+        });
+      }
+      
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      console.log(`📋 Working with sheet: ${sheetName}`);
+      
+      // Convert to JSON
+      jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      console.log(`📊 Found ${jsonData.length} records in Excel file`);
+      console.log(`📋 First row keys:`, Object.keys(jsonData[0] || {}));
     }
-    
-    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-      console.error('❌ No worksheets found in Excel file');
-      return res.status(400).json({
-        success: false,
-        message: 'No worksheets found in Excel file'
-      });
-    }
-    
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    console.log(`📋 Working with sheet: ${sheetName}`);
-    
-    // Convert to JSON
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-    
-    console.log(`📊 Found ${jsonData.length} records in Excel file`);
-    console.log(`📋 First row keys:`, Object.keys(jsonData[0] || {}));
     
     if (jsonData.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No data found in Excel file'
+        message: 'No data found in file'
       });
     }
 
