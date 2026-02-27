@@ -238,6 +238,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean, 
     default: false 
   },
+  isImported: { 
+    type: Boolean, 
+    default: false 
+  },
+  importedFrom: {
+    type: String,
+    default: ''
+  },
   otp: { 
     type: String 
   },

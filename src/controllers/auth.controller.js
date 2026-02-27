@@ -779,10 +779,35 @@ const signup = async (req, res) => {
     // Check if user already exists with the same email and role
     const existingUser = await User.findOne({ email, role });
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this email and role already exists'
-      });
+      // If the existing user is imported, allow signup to update their account
+      if (existingUser.isImported) {
+        // Update the imported user with the new password
+        existingUser.password = password;
+        existingUser.isVerified = true; // Mark as verified since they're setting their own password
+        await existingUser.save();
+        
+        // Generate token
+        const token = generateToken(existingUser._id, existingUser.role);
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Imported account updated successfully',
+          data: {
+            user: {
+              id: existingUser._id,
+              name: existingUser.name,
+              email: existingUser.email,
+              role: existingUser.role
+            },
+            token
+          }
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'User with this email and role already exists'
+        });
+      }
     }
 
     // Additional check for jobSeeker - ensure email is unique across all users
@@ -940,6 +965,42 @@ const login = async (req, res) => {
           success: false,
           message: 'Invalid credentials'
         });
+      }
+
+      // Check if user is imported and needs to set password
+      if (user.isImported && !user.isVerified) {
+        // For imported users who haven't verified yet, temporarily allow login
+        // This is to allow them to set their password
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+          // Check if they're using a temporary password
+          if (user.password && await bcrypt.compare(password, user.password)) {
+            // This is likely a temporary password for an imported user
+            // Allow login but indicate they need to update their password
+            const token = generateToken(user._id, user.role);
+            
+            return res.status(200).json({
+              success: true,
+              message: 'Please update your password. This is a temporary login.',
+              data: {
+                user: {
+                  id: user._id,
+                  name: user.name,
+                  email: user.email,
+                  role: user.role,
+                  isImported: user.isImported,
+                  needsPasswordUpdate: true
+                },
+                token
+              }
+            });
+          } else {
+            return res.status(401).json({
+              success: false,
+              message: 'Invalid credentials'
+            });
+          }
+        }
       }
 
       // Check password
