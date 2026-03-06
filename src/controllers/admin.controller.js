@@ -533,7 +533,6 @@ const getUserStatistics = async (req, res) => {
           $lte: weekEnd
         }
       });
-      // FRONTEND_URL=https://www.eliteindiajobs.com
       
       monthlyStats.push({
         weekStart: weekStart.toISOString().split('T')[0],
