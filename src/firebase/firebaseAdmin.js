@@ -6,7 +6,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to service account key (placed in eliteJobsBackend/firebase/)
 const serviceAccountPath = path.resolve(__dirname, '../../firebase/elitejobs-2e753-firebase-adminsdk-fbsvc-a21ad3badd.json');
 
 try {
