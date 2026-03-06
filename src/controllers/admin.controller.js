@@ -540,10 +540,7 @@ const getUserStatistics = async (req, res) => {
         count
       });
     }
-       // Get total counts for each role or just the specified role
-          // Get total counts for each role or just the specified role
-             // Get total counts for each role or just the specified role
-
+    
     // Get total counts for each role or just the specified role
     let totals = {};
     if (role && role !== 'all') {
