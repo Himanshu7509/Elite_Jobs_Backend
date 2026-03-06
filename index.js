@@ -29,6 +29,10 @@ import adminRouter from './src/routes/admin.route.js';
 import eliteTeamRouter from './src/routes/eliteTeam.route.js';
 import contactRouter from './src/routes/contact.route.js';
 import importRouter from './src/routes/import.route.js';
+import notificationRouter from './src/routes/notification.route.js';
+
+// Initialize Firebase Admin SDK
+import './src/firebase/firebaseAdmin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -105,6 +109,7 @@ app.use('/admin', adminRouter);
 app.use('/elite-team', eliteTeamRouter);
 app.use('/contact', contactRouter);
 app.use('/import', importRouter);
+app.use('/notifications', notificationRouter);
 
 /* ===============================
    GOOGLE OAUTH

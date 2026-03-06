@@ -11,6 +11,7 @@ import Job, {
 import Application from '../models/application.model.js';
 import User from '../models/auth.model.js';
 import { deleteFromS3 } from '../controllers/file.controller.js';
+import { sendJobAlertNotification } from '../services/notificationService.js';
 
 // Helper function to handle salary values as strings
 const handleSalaryValue = (value) => {
@@ -179,6 +180,13 @@ const createJob = async (req, res) => {
         }
       });
     
+    // Send job alert notification (non-blocking)
+    sendJobAlertNotification(
+      `New Job: ${title}`,
+      `${populatedJob.company?.name || 'A company'} is hiring for ${title} in ${Array.isArray(location) ? location.join(', ') : location}`,
+      { type: 'jobAlert', jobId: String(populatedJob._id), category: category || '' }
+    ).catch(err => console.error('Job alert notification error:', err));
+
     res.status(201).json({
       success: true,
       message: 'Job created successfully',

@@ -226,6 +226,15 @@ const userSchema = new mongoose.Schema({
       return {};
     }
   },
+  // Push notification fields
+  pushToken: {
+    type: String,
+    default: ''
+  },
+  subscribedToJobAlerts: {
+    type: Boolean,
+    default: true
+  },
   // Fields for forgot password functionality
   resetPasswordToken: String,
   resetPasswordExpires: Date,
