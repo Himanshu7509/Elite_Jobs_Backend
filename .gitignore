@@ -61,3 +61,4 @@ typings/
 .next
  
 # Firebase service account key (sensitive)
+firebase/*.json

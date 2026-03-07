@@ -79,16 +79,23 @@ export const sendNotificationToMultipleUsers = async (tokens, title, body, data 
       `✅ Batch notification: ${response.successCount} sent, ${response.failureCount} failed`
     );
 
-    // Clean up invalid tokens
+    // Clean up invalid tokens and collect failure details
     const invalidTokens = [];
+    const failureDetails = [];
     response.responses.forEach((resp, idx) => {
-      if (
-        !resp.success &&
-        resp.error &&
-        (resp.error.code === 'messaging/invalid-registration-token' ||
-          resp.error.code === 'messaging/registration-token-not-registered')
-      ) {
-        invalidTokens.push(validTokens[idx]);
+      if (!resp.success && resp.error) {
+        console.error(`❌ Token failed: ${validTokens[idx]}, Code: ${resp.error.code}, Message: ${resp.error.message}`);
+        failureDetails.push({
+          token: validTokens[idx].substring(0, 20) + '...',
+          code: resp.error.code,
+          message: resp.error.message,
+        });
+        if (
+          resp.error.code === 'messaging/invalid-registration-token' ||
+          resp.error.code === 'messaging/registration-token-not-registered'
+        ) {
+          invalidTokens.push(validTokens[idx]);
+        }
       }
     });
 
@@ -105,6 +112,7 @@ export const sendNotificationToMultipleUsers = async (tokens, title, body, data 
       success: true,
       successCount: response.successCount,
       failureCount: response.failureCount,
+      failureDetails,
     };
   } catch (error) {
     console.error('❌ Error sending batch notification:', error.message);
@@ -133,6 +141,7 @@ export const sendBroadcastNotification = async (title, body, data = {}) => {
     const batchSize = 500;
     let totalSuccess = 0;
     let totalFailure = 0;
+    const allFailureDetails = [];
 
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
@@ -140,10 +149,11 @@ export const sendBroadcastNotification = async (title, body, data = {}) => {
       if (result.success) {
         totalSuccess += result.successCount || 0;
         totalFailure += result.failureCount || 0;
+        if (result.failureDetails) allFailureDetails.push(...result.failureDetails);
       }
     }
 
-    return { success: true, successCount: totalSuccess, failureCount: totalFailure };
+    return { success: true, successCount: totalSuccess, failureCount: totalFailure, failureDetails: allFailureDetails };
   } catch (error) {
     console.error('❌ Error sending broadcast notification:', error.message);
     return { success: false, error: error.message };
@@ -176,6 +186,7 @@ export const sendJobAlertNotification = async (title, body, data = {}) => {
     const batchSize = 500;
     let totalSuccess = 0;
     let totalFailure = 0;
+    const allFailureDetails = [];
 
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
@@ -183,10 +194,11 @@ export const sendJobAlertNotification = async (title, body, data = {}) => {
       if (result.success) {
         totalSuccess += result.successCount || 0;
         totalFailure += result.failureCount || 0;
+        if (result.failureDetails) allFailureDetails.push(...result.failureDetails);
       }
     }
 
-    return { success: true, successCount: totalSuccess, failureCount: totalFailure };
+    return { success: true, successCount: totalSuccess, failureCount: totalFailure, failureDetails: allFailureDetails };
   } catch (error) {
     console.error('❌ Error sending job alert notification:', error.message);
     return { success: false, error: error.message };
